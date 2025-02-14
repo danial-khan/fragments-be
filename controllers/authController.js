@@ -128,7 +128,6 @@ const verifyEmail = async (req, res) => {
 
 const getSession = (req, res) => {
   try {
-    console.log(req.cookie);
     const token = req.cookies["session-token"];
 
     if (!token) {
@@ -192,6 +191,39 @@ const forgetPassword = async (req, res) => {
   }
 };
 
+const resetPassword = async (req, res) => {
+  try {
+    const { code, password } = req.body;
+
+    if (!code || !password) {
+      return res
+        .status(400)
+        .json({ message: "Reset code and new password are required." });
+    }
+
+    const user = await UserModel.findOne({ resetCode: code });
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset code." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    user.resetCode = null;
+    await user.save();
+
+    res
+      .status(200)
+      .json({
+        message:
+          "Password reset successful. You can now log in with your new password.",
+      });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 module.exports.authController = {
   register,
@@ -199,5 +231,6 @@ module.exports.authController = {
   verifyEmail,
   getSession,
   logout,
-  forgetPassword
+  forgetPassword,
+  resetPassword,
 };

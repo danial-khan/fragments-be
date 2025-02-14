@@ -8,5 +8,6 @@ authRouter.post("/email-confirmation", authController.verifyEmail);
 authRouter.get("/session", authController.getSession);
 authRouter.post("/logout", authController.logout);
 authRouter.post("/forgot-password", authController.forgetPassword);
+authRouter.post("/reset-password", authController.resetPassword);
 
 module.exports = authRouter;

@@ -17,6 +17,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    provider: {
+      type: String,
+      default: "app",
+    },
+    avatar: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
