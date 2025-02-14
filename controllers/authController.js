@@ -39,7 +39,7 @@ const register = async (req, res) => {
       path.join(__dirname, "../email-templates/register-verification.ejs"),
       {
         name,
-        verificationURL: `${config.FRONTEND_URL}/email-confirmation?code=${verificationCode}`,
+        verificationURL: `${config.UI_BASE_URL}/email-confirmation?code=${verificationCode}`,
       }
     );
 
@@ -178,7 +178,7 @@ const forgetPassword = async (req, res) => {
       path.join(__dirname, "../email-templates/forget-password.ejs"),
       {
         name: user.name,
-        resetURL: `${config.FRONTEND_URL}/auth/reset-password?code=${resetCode}`,
+        resetURL: `${config.UI_BASE_URL}/auth/reset-password?code=${resetCode}`,
       }
     );
 
@@ -213,12 +213,10 @@ const resetPassword = async (req, res) => {
     user.resetCode = null;
     await user.save();
 
-    res
-      .status(200)
-      .json({
-        message:
-          "Password reset successful. You can now log in with your new password.",
-      });
+    res.status(200).json({
+      message:
+        "Password reset successful. You can now log in with your new password.",
+    });
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ message: "Internal server error" });
