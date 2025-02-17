@@ -1,6 +1,11 @@
 const nodemailer = require("nodemailer");
 const { config } = require("../config");
 
+console.error({
+  SMTP_PASS,
+  SMTP_USER,
+  SMTP_HOST,
+})
 const mailer = nodemailer.createTransport({
   host: config.SMTP_HOST,
   secure: true,
