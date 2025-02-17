@@ -54,6 +54,7 @@ const callbackGoogle = async (req, res, next) => {
           provider: "google",
         });
         res.redirect(`${config.UI_BASE_URL}/auth/register/oauth-success`);
+        return;
       } else if (user && method === "register") {
         res.redirect(
           `${config.UI_BASE_URL}/auth/register/oauth-already-registered`
@@ -86,8 +87,10 @@ const callbackGoogle = async (req, res, next) => {
 
     if (method === "login") {
       res.redirect(`${config.UI_BASE_URL}/auth/login/oauth-failure`);
+      return;
     } else {
       res.redirect(`${config.UI_BASE_URL}/auth/register/oauth-failure`);
+      return;
     }
   } catch (err) {
     console.error(err);
