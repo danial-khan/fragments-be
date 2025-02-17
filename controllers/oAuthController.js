@@ -3,6 +3,10 @@ const UserModel = require("../database/models/user");
 
 const google = async (req, res) => {
   const { method } = req.params;
+  console.log({
+    REDIRECT_URI: config.GOOGLE_CALLBACK_REDIRECT_URI,
+    method
+  })
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.GOOGLE_CLIENT_ID}&redirect_uri=${config.GOOGLE_CALLBACK_REDIRECT_URI}/${method}&response_type=code&scope=profile email`;
   return res.redirect(url);
 };
@@ -26,7 +30,6 @@ const callbackGoogle = async (req, res, next) => {
 
     const tokenData = await tokenResponse.json();
     const { access_token: accessToken } = tokenData;
-    logger.info(tokenData);
 
     // Use access_token or id_token to fetch user profile
     const profileResponse = await fetch(
@@ -80,7 +83,6 @@ const callbackGoogle = async (req, res, next) => {
       res.redirect(`${config.UI_BASE_URL}/register/oauth-failure`);
     }
   } catch (err) {
-    logger.error(err);
     err.status = 400;
     next(err);
   }
