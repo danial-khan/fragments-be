@@ -95,7 +95,7 @@ const login = async (req, res) => {
     );
 
     res.cookie("session-token", token, {
-      domain: process.env.NODE_ENV === "production" ? "fragmentsbackend.mernsol.com" : "localhost",
+      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       sameSite: "None",
       httpOnly: true,
       secure: true,
@@ -154,7 +154,7 @@ const getSession = (req, res) => {
 const logout = (req, res) => {
   try {
     res.clearCookie("session-token", {
-      domain: process.env.NODE_ENV === "production" ? "fragmentsbackend.mernsol.com" : "localhost",
+      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       path: "/",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
