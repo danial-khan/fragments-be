@@ -1,13 +1,13 @@
 const { config } = require("../config");
 const UserModel = require("../database/models/user");
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
 const google = async (req, res) => {
   const { method } = req.params;
   console.log({
     REDIRECT_URI: config.GOOGLE_CALLBACK_REDIRECT_URI,
-    method
-  })
+    method,
+  });
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.GOOGLE_CLIENT_ID}&redirect_uri=${config.GOOGLE_CALLBACK_REDIRECT_URI}/${method}&response_type=code&scope=profile email`;
   return res.redirect(url);
 };
@@ -53,13 +53,15 @@ const callbackGoogle = async (req, res, next) => {
           password: "12345678",
           provider: "google",
         });
-        res.redirect(`${config.UI_BASE_URL}/register/oauth-success`);
+        res.redirect(`${config.UI_BASE_URL}/auth/register/oauth-success`);
       } else if (user && method === "register") {
-        res.redirect(`${config.UI_BASE_URL}/register/oauth-already-registered`);
+        res.redirect(
+          `${config.UI_BASE_URL}/auth/register/oauth-already-registered`
+        );
         return;
       }
       if (!user && method === "login") {
-        res.redirect(`${config.UI_BASE_URL}/login/oauth-unregistered`);
+        res.redirect(`${config.UI_BASE_URL}/auth/login/oauth-unregistered`);
         return;
       } else if (user && method === "login") {
         const token = jwt.sign(
@@ -68,10 +70,14 @@ const callbackGoogle = async (req, res, next) => {
           { expiresIn: "7d" }
         );
         res.cookie("session-token", token, {
-          maxAge: 24 * 60 * 60 * 1000,
+          domain:
+            process.env.NODE_ENV === "production"
+              ? ".mernsol.com"
+              : "localhost",
+          sameSite: "None",
           httpOnly: true,
           secure: true,
-          sameSite: "none",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
         });
         res.redirect(`${config.UI_BASE_URL}/dashboard`);
         return;
@@ -79,9 +85,9 @@ const callbackGoogle = async (req, res, next) => {
     }
 
     if (method === "login") {
-      res.redirect(`${config.UI_BASE_URL}/login/oauth-failure`);
+      res.redirect(`${config.UI_BASE_URL}/auth/login/oauth-failure`);
     } else {
-      res.redirect(`${config.UI_BASE_URL}/register/oauth-failure`);
+      res.redirect(`${config.UI_BASE_URL}/auth/register/oauth-failure`);
     }
   } catch (err) {
     console.error(err);
