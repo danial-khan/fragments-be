@@ -1,11 +1,12 @@
 const nodemailer = require("nodemailer");
 const { config } = require("../config");
 
-console.error({
-  SMTP_PASS,
-  SMTP_USER,
-  SMTP_HOST,
-})
+console.error(JSON.stringify({
+  SMTP_HOST: config.SMTP_HOST,
+  SMTP_USER: config.SMTP_USER,
+  SMTP_PASS: config.SMTP_PASS,
+}, null, 2));
+
 const mailer = nodemailer.createTransport({
   host: config.SMTP_HOST,
   secure: true,
