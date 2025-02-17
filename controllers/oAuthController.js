@@ -83,6 +83,7 @@ const callbackGoogle = async (req, res, next) => {
       res.redirect(`${config.UI_BASE_URL}/register/oauth-failure`);
     }
   } catch (err) {
+    console.error(err);
     err.status = 400;
     next(err);
   }
