@@ -95,6 +95,7 @@ const login = async (req, res) => {
     );
 
     res.cookie("session-token", token, {
+      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       sameSite: "None",
       httpOnly: true,
       secure: true,
@@ -153,6 +154,7 @@ const getSession = (req, res) => {
 const logout = (req, res) => {
   try {
     res.clearCookie("session-token", {
+      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
