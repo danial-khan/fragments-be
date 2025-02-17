@@ -1,7 +1,7 @@
 const { config } = require("../config");
 const UserModel = require("../database/models/user");
 const fetch = require("node-fetch");
-
+const jwt = require('jsonwebtoken');
 const google = async (req, res) => {
   const { method } = req.params;
   console.log({
