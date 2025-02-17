@@ -47,7 +47,7 @@ const register = async (req, res) => {
     );
 
     // Send verification email
-    await mailer.sendEmail(email, emailTemplate);
+    await mailer.sendEmail(email, "Verify Your Email - Fragments", emailTemplate);
 
     res
       .status(201)
@@ -193,7 +193,7 @@ const forgetPassword = async (req, res) => {
       }
     );
 
-    await mailer.sendEmail(email, emailTemplate);
+    await mailer.sendEmail(email, "Reset your password - Fragments", emailTemplate);
 
     res.status(200).json({ message: "Password reset email sent!" });
   } catch (error) {

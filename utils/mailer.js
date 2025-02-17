@@ -16,11 +16,11 @@ const mailer = nodemailer.createTransport({
   },
 });
 
-module.exports.sendEmail = async (email, emailTemplate) => {
+module.exports.sendEmail = async (email, subject, emailTemplate) => {
     return await mailer.sendMail({
         from: '"Fragments" <no-reply@fragments.com>',
         to: email,
-        subject: "Verify Your Email - Fragments",
+        subject: subject,
         html: emailTemplate,
     });
 }
