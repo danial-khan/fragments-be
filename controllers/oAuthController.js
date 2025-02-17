@@ -3,7 +3,7 @@ const UserModel = require("../database/models/user");
 
 const google = async (req, res) => {
   const { method } = req.params;
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.GOOGLE_CLIENT_ID}&redirect_uri=${config.REDIRECT_URI}/${method}&response_type=code&scope=profile email`;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.GOOGLE_CLIENT_ID}&redirect_uri=${config.GOOGLE_CALLBACK_REDIRECT_URI}/${method}&response_type=code&scope=profile email`;
   return res.redirect(url);
 };
 
@@ -19,7 +19,7 @@ const callbackGoogle = async (req, res, next) => {
         client_id: config.GOOGLE_CLIENT_ID,
         client_secret: config.GOOGLE_CLIENT_SECRET,
         code,
-        redirect_uri: `${REDIRECT_URI}/${method}`,
+        redirect_uri: `${config.GOOGLE_CALLBACK_REDIRECT_URI}/${method}`,
         grant_type: "authorization_code",
       }),
     });
