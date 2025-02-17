@@ -1,5 +1,5 @@
 const UserModel = require("../database/models/user");
-const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const ejs = require("ejs");
 const path = require("path");
 const mailer = require("../utils/mailer");
@@ -21,7 +21,10 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "User already exists." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(password)
+      .digest("hex");
 
     const verificationCode = Math.floor(
       100000 + Math.random() * 900000
@@ -68,8 +71,13 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
-
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = crypto.timingSafeEqual(
+      Buffer.from(user.password, "utf8"),
+      Buffer.from(
+        crypto.createHash("sha256").update(password).digest("hex"),
+        "utf8"
+      )
+    );
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
@@ -208,7 +216,10 @@ const resetPassword = async (req, res) => {
         .json({ message: "Invalid or expired reset code." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(password)
+      .digest("hex");
     user.password = hashedPassword;
     user.resetCode = null;
     await user.save();
