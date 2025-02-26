@@ -1,0 +1,54 @@
+<!-- Email Template for User Confirmation -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Form Submission - Fragments</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        text-align: center;
+        border-top: 5px solid #8b4513;
+      }
+      .header {
+        font-size: 24px;
+        font-weight: bold;
+        color: #8b4513;
+      }
+      .message {
+        font-size: 16px;
+        color: #333;
+        margin: 20px 0;
+      }
+      .footer {
+        font-size: 14px;
+        color: #666;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">Thank You for Contacting Us!</div>
+      <p class="message">Hi <%= name %>,</p>
+      <p class="message">
+        We have received your message and will get back to you shortly. Here are the details of your submission:
+      </p>
+      <p><strong>Subject:</strong> <%= subject %></p>
+      <p><strong>Message:</strong> <%= message %></p>
+      <div class="footer">If you have any urgent queries, please reach out to our support team.</div>
+    </div>
+  </body>
+</html>

@@ -9,14 +9,16 @@ const app = express();
 
 app.use(
   cors({
-    origin: config.UI_BASE_URL,
+    origin: [config.UI_BASE_URL, config.LANDINGPAGE_BASE_URL],
     credentials: true,
   })
 );
 
 connectDatabase();
 app.use(cookieParser())
-app.use(express.json());
+app.use(express.json({
+  limit: '50mb'
+}));
 app.use(rootRouter);
 
 app.get("/", (req, res) => {

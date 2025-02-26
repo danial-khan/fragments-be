@@ -5,6 +5,7 @@ const path = require("path");
 const mailer = require("../utils/mailer");
 const { config } = require("../config");
 const jwt = require("jsonwebtoken");
+const UserCredentialsModel = require("../database/models/userCredentials");
 
 // Registration function
 const register = async (req, res) => {
@@ -47,7 +48,11 @@ const register = async (req, res) => {
     );
 
     // Send verification email
-    await mailer.sendEmail(email, "Verify Your Email - Fragments", emailTemplate);
+    await mailer.sendEmail(
+      email,
+      "Verify Your Email - Fragments",
+      emailTemplate
+    );
 
     res
       .status(201)
@@ -87,15 +92,16 @@ const login = async (req, res) => {
         message: "Email not verified. Please check your email to verify.",
       });
     }
-
+    const { name, email: userEmail, avatar, _id: userId } = user.toJSON();
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { _id: userId, name, email: userEmail, avatar },
       config.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     res.cookie("session-token", token, {
-      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
+      domain:
+        process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       sameSite: "None",
       httpOnly: true,
       secure: true,
@@ -137,15 +143,9 @@ const verifyEmail = async (req, res) => {
 
 const getSession = (req, res) => {
   try {
-    const token = req.cookies["session-token"];
-
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(token, config.JWT_SECRET);
-    res.status(200).json({ user: decoded });
+    const user = req.user;
+    const userCredentials = req.userCredentials;
+    res.status(200).json({ user: user, userCredentials });
   } catch (error) {
     return res.status(401).json({ message: "Unauthorized" });
   }
@@ -154,10 +154,11 @@ const getSession = (req, res) => {
 const logout = (req, res) => {
   try {
     res.clearCookie("session-token", {
-      domain: process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
+      domain:
+        process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
       path: "/",
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "None",
     });
 
@@ -193,7 +194,11 @@ const forgetPassword = async (req, res) => {
       }
     );
 
-    await mailer.sendEmail(email, "Reset your password - Fragments", emailTemplate);
+    await mailer.sendEmail(
+      email,
+      "Reset your password - Fragments",
+      emailTemplate
+    );
 
     res.status(200).json({ message: "Password reset email sent!" });
   } catch (error) {
@@ -237,6 +242,90 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const contactUs = async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if ((!name || !email, !subject, !message)) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Render reset email template
+    const userTemplate = await ejs.renderFile(
+      path.join(__dirname, "../email-templates/contactus-user.ejs"),
+      {
+        name,
+        subject,
+        message,
+      }
+    );
+
+    await mailer.sendEmail(
+      email,
+      "Your details have been submitted - Fragments",
+      userTemplate
+    );
+
+    // Render reset email template
+    const adminTemplate = await ejs.renderFile(
+      path.join(__dirname, "../email-templates/contactus-admin.ejs"),
+      {
+        name,
+        email,
+        subject,
+        message,
+      }
+    );
+
+    await mailer.sendEmail(
+      config.CONTACT_EMAIL,
+      "User has submitted contact us form - Fragments",
+      adminTemplate
+    );
+
+    res.status(200).json({
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Something went wrong",
+    });
+  }
+};
+
+const onboarding = async (req, res) => {
+  try {
+    const user = req.user;
+    const { name, credentials, institution, expertise, file, bio, type } =
+      req.body;
+
+    if (!name || !credentials || !institution || !expertise || !bio || !type) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    if (type === "author" && !file) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    const userCredentials = await UserCredentialsModel.create({
+      name,
+      credentials,
+      institution,
+      expertise,
+      file,
+      bio,
+      type,
+      userId: user._id,
+    });
+
+    res
+      .status(201)
+      .json({ message: "Onboarding successful.", userCredentials });
+  } catch (error) {
+    console.error("Onboarding error:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 module.exports.authController = {
   register,
   login,
@@ -245,4 +334,6 @@ module.exports.authController = {
   logout,
   forgetPassword,
   resetPassword,
+  contactUs,
+  onboarding,
 };

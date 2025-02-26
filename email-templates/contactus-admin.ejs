@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Contact Form Submission - Fragments</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        text-align: left;
+        border-top: 5px solid #8b4513;
+      }
+      .header {
+        font-size: 24px;
+        font-weight: bold;
+        color: #8b4513;
+        text-align: center;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      .table th, .table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+      }
+      .table th {
+        background-color: #8b4513;
+        color: #fff;
+      }
+      .footer {
+        font-size: 14px;
+        color: #666;
+        margin-top: 20px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">New Contact Form Submission</div>
+      <p>A user has submitted the contact form with the following details:</p>
+      <table class="table">
+        <tr>
+          <th>Name</th>
+          <td><%= name %></td>
+        </tr>
+        <tr>
+          <th>Email</th>
+          <td><%= email %></td>
+        </tr>
+        <tr>
+          <th>Subject</th>
+          <td><%= subject %></td>
+        </tr>
+        <tr>
+          <th>Message</th>
+          <td><%= message %></td>
+        </tr>
+      </table>
+      <div class="footer">Please respond to the user promptly.</div>
+    </div>
+  </body>
+</html>
