@@ -99,6 +99,11 @@ const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const userCredentials = await UserCredentialsModel.findOne({
+      userId,
+    });
+    const { file, ...restUserCredentials } = userCredentials?.toJSON() || {};
+
     res.cookie("session-token", token, {
       domain:
         process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
@@ -108,7 +113,12 @@ const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: "Login Successful!" });
+    res
+      .status(200)
+      .json({
+        user: user?.toJSON(),
+        userCredentials: userCredentials ? restUserCredentials : undefined,
+      });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });

@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const { config } = require("../config");
-const UserCredentialsModel = require('../database/models/userCredentials');
+const UserCredentialsModel = require("../database/models/userCredentials");
 
 module.exports.authMiddleware = async (req, res, next) => {
   try {
@@ -13,11 +13,14 @@ module.exports.authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, config.JWT_SECRET);
     req.user = decoded;
 
-    const { file: _, ...restUserCredentials} = (await UserCredentialsModel.findOne({
-      userId: decoded._id,
-    })).toJSON();
-
-    req.userCredentials = restUserCredentials
+    const userCredentials = 
+      await UserCredentialsModel.findOne({
+        userId: decoded._id,
+      })
+    if (userCredentials) {
+      const { file: _, ...restUserCredentials } = userCredentials?.toJSON();
+      req.userCredentials = restUserCredentials;
+    }
 
     next();
   } catch (error) {
