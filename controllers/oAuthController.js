@@ -52,6 +52,7 @@ const callbackGoogle = async (req, res, next) => {
           emailVerified: true,
           password: "12345678",
           provider: "google",
+          type: 'student'
         });
         res.redirect(`${config.UI_BASE_URL}/auth/register/oauth-success`);
         return;

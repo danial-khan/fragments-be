@@ -36,6 +36,7 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       verificationCode,
+      type: "student",
     });
 
     // Render email template
@@ -62,6 +63,7 @@ const register = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -113,12 +115,10 @@ const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res
-      .status(200)
-      .json({
-        user: user?.toJSON(),
-        userCredentials: userCredentials ? restUserCredentials : undefined,
-      });
+    res.status(200).json({
+      user: user?.toJSON(),
+      userCredentials: userCredentials ? restUserCredentials : undefined,
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -178,6 +178,7 @@ const logout = (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 const forgetPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -326,6 +327,8 @@ const onboarding = async (req, res) => {
       type,
       userId: user._id,
     });
+
+    await UserModel.updateOne({ _id: user._id }, { $set: { type } });
 
     res
       .status(201)

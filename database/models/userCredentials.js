@@ -1,7 +1,11 @@
 const mongoose = require("mongoose");
 const userCredentialsSchema = new mongoose.Schema(
   {
-    userId: mongoose.Types.ObjectId,
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     name: String,
     credentials: String,
     institution: String,
@@ -9,17 +13,21 @@ const userCredentialsSchema = new mongoose.Schema(
     bio: String,
     type: {
       type: String,
-      enum: ['student', 'author']
+      enum: ["student", "author"],
     },
     file: {
       type: String,
     },
-    active: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
+      enum: ["approved", "rejected", "pending"],
+      default: "pending",
     },
   },
   { timestamps: true }
 );
-const UserCredentialsModel = mongoose.model("userCredentials", userCredentialsSchema);
+const UserCredentialsModel = mongoose.model(
+  "userCredentials",
+  userCredentialsSchema
+);
 module.exports = UserCredentialsModel;
