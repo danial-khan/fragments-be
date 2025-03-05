@@ -9,7 +9,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: [config.UI_BASE_URL, config.LANDINGPAGE_BASE_URL],
+    origin: [config.UI_BASE_URL, config.LANDINGPAGE_BASE_URL, config.ADMIN_BASE_URL],
     credentials: true,
   })
 );
