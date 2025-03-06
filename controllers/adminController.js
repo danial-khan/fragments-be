@@ -115,13 +115,13 @@ const getStats = async (_req, res) => {
     });
     const totalActive = await UserModel.countDocuments({
       type: {
-        $in: ["author", "student"],
+        $nin: ["admin"],
       },
       active: true,
     });
     const totalInactive = await UserModel.countDocuments({
       type: {
-        $in: ["author", "student"],
+        $nin: ["admin"],
       },
       active: false,
     });
@@ -163,7 +163,6 @@ const getStudents = async (req, res) => {
     res.status(500).json({ success: false, message: "Something went wrong" });
   }
 };
-
 
 const updateCredentialsStatus = async (req, res) => {
   try {
