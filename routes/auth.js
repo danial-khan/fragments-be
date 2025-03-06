@@ -12,5 +12,6 @@ authRouter.post("/forgot-password", authController.forgetPassword);
 authRouter.post("/reset-password", authController.resetPassword);
 authRouter.post("/contact-us", authController.contactUs);
 authRouter.post("/onboarding", authMiddleware, authController.onboarding);
+authRouter.post("/credentials/:status", authMiddleware, authController.updateCredentialsStatus);
 
 module.exports = authRouter;

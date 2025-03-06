@@ -339,6 +339,34 @@ const onboarding = async (req, res) => {
   }
 };
 
+const updateCredentialsStatus = async (req, res) => {
+  try {
+    const userCredentialsId = req.userCredentials._id;
+    const { status } = req.params;
+
+    if (status === "resubmit") {
+      await UserCredentialsModel.deleteOne({ _id: userCredentialsId });
+    } else {
+      await UserCredentialsModel.updateOne(
+        {
+          _id: userCredentialsId,
+        },
+        { $set: { status } }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Credentials status updated successfully",
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong.",
+    });
+  }
+};
+
 module.exports.authController = {
   register,
   login,
@@ -349,4 +377,5 @@ module.exports.authController = {
   resetPassword,
   contactUs,
   onboarding,
+  updateCredentialsStatus,
 };
