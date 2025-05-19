@@ -14,6 +14,9 @@ const login = async (req, res) => {
     }
 
     const user = await UserModel.findOne({ email, type: "admin" });
+    console.log({
+      user
+    })
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
@@ -103,11 +106,11 @@ const getStats = async (_req, res) => {
         $ne: "approved",
       },
     });
-    const activeStudents = await UserModel.countDocuments({
+    const activeStudents = await UserCredentialsModel.countDocuments({
       type: "student",
       status: "approved",
     });
-    const inActiveStudents = await UserModel.countDocuments({
+    const inActiveStudents = await UserCredentialsModel.countDocuments({
       type: "student",
       status: {
         $ne: "approved",
@@ -181,6 +184,40 @@ const updateCredentialsStatus = async (req, res) => {
   }
 };
 
+const getUsers = async (req, res) => {
+  try {
+    const users = await UserModel.find({
+      type: {
+        $nin: ["admin"],
+      }
+    }, '-password').exec();
+
+    return res.status(200).json({
+      users,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
+const updateUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const { status } = req.params;
+    await UserModel.updateOne(
+      { _id: userId },
+      { $set: { active: status === "active" } }
+    );
+    return res.status(200).json({
+      success: true,
+      message: "status updateds successfully",
+    });
+  } catch {
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+}
+
 module.exports.adminController = {
   login,
   register,
@@ -189,4 +226,6 @@ module.exports.adminController = {
   getAuthors,
   getStudents,
   updateCredentialsStatus,
+  getUsers,
+  updateUserStatus,
 };

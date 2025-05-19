@@ -94,6 +94,11 @@ const login = async (req, res) => {
         message: "Email not verified. Please check your email to verify.",
       });
     }
+    if (!user.active) {
+      return res.status(403).json({
+        message: "User not active. Please contact support.",
+      });
+    }
     const { name, email: userEmail, avatar, _id: userId } = user.toJSON();
     const token = jwt.sign(
       { _id: userId, name, email: userEmail, avatar },
@@ -218,6 +223,59 @@ const forgetPassword = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Both old and new passwords are required.",
+      });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    const isMatch = crypto.timingSafeEqual(
+      Buffer.from(user.password, "utf8"),
+      Buffer.from(
+        crypto.createHash("sha256").update(oldPassword).digest("hex"),
+        "utf8"
+      )
+    );
+    if (!isMatch) {
+      return res.status(401).json({ message: "Old password is incorrect." });
+    }
+
+    const isSamePassword = crypto.timingSafeEqual(
+      Buffer.from(user.password, "utf8"),
+      Buffer.from(
+        crypto.createHash("sha256").update(newPassword).digest("hex"),
+        "utf8"
+      )
+    );
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: "New password must be different from current password.",
+      });
+    }
+    const hashedPassword = crypto
+      .createHash("sha256")
+      .update(newPassword)
+      .digest("hex");
+
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Password changed successfully!" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 const resetPassword = async (req, res) => {
   try {
     const { code, password } = req.body;
@@ -326,6 +384,7 @@ const onboarding = async (req, res) => {
       bio,
       type,
       userId: user._id,
+      status: type === "student" ? "approved" : "pending",
     });
 
     await UserModel.updateOne({ _id: user._id }, { $set: { type } });
@@ -374,6 +433,7 @@ module.exports.authController = {
   getSession,
   logout,
   forgetPassword,
+  changePassword,
   resetPassword,
   contactUs,
   onboarding,

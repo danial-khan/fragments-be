@@ -1,0 +1,72 @@
+const CategoryModel = require("../database/models/category");
+
+const colors = ['blue', 'green', 'purple', 'red', 'amber', 'aqua', 'azure', 'beige', 'black', 'bronze', 'brown', 'coral', 'cyan', 'gold', 'gray', 'indigo', 'ivory', 'khaki', 'lavender', 'lime', 'magenta', 'maroon', 'mint', 'navy', 'olive', 'orange', 'peach', 'pink', 'plum', 'rose', 'salmon', 'sapphire', 'scarlet', 'silver', 'slate', 'tan', 'teal', 'tomato', 'turquoise', 'violet', 'white', 'yellow', 'emerald', 'fuchsia', 'orchid', 'periwinkle', 'ruby', 'sky', 'tangerine', 'wheat', 'copper', 'steel', 'forest', 'ocean'];
+
+const createCategory = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    const slug = name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
+    if (!slug) {
+      return res.status(400).json({ error: "Slug is required" });
+    }
+
+    const existingCategoriesLength = await CategoryModel.countDocuments();
+    
+    const color = colors[existingCategoriesLength + 1] || colors[0];
+
+    const existingCategory = await CategoryModel.findOne({ 
+      $or: [{ name }, { slug }] 
+    });
+
+    if (existingCategory) {
+      return res.status(400).json({ 
+        error: "Category with this name or slug already exists" 
+      });
+    }
+
+    const newCategory = await CategoryModel.create({ name, slug, color });
+    res.status(201).json(newCategory);
+  } catch (err) {
+    console.error("Create category error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const getCategories = async (req, res) => {
+  try {
+    const categories = await CategoryModel.find().sort({ createdAt: -1 });
+    res.status(200).json(categories);
+  } catch (err) {
+    console.error("Get categories error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedCategory = await CategoryModel.findByIdAndDelete(id);
+
+    if (!deletedCategory) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    res.status(200).json({ message: "Category deleted successfully" });
+  } catch (err) {
+    console.error("Delete category error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const categoryController = {
+  createCategory,
+  getCategories,
+  deleteCategory,
+};
+
+module.exports = categoryController;
