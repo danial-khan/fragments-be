@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const UserModel = require("../database/models/user");
 
 module.exports.authMiddleware = async (req, res, next) => {
   try {
@@ -11,7 +12,12 @@ module.exports.authMiddleware = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, config.JWT_SECRET);
-    req.user = decoded;
+    const user = await UserModel.findById(decoded._id, '-password -verificationCode -resetCode -remember -__v');
+    if (!user || !user.active) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    req.user = user;
+    
 
     const userCredentials = 
       await UserCredentialsModel.findOne({

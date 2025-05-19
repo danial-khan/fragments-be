@@ -29,9 +29,28 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['student', 'author', 'admin'],
       default: 'user'
-    }
+    },
+    subscription: {
+      id: String,
+      plan: String,
+      subscriptionDate: {
+        type: Date,
+        default: null
+      },
+    },
+    following: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: []
+    }],
+    followers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: []
+    }]
   },
   { timestamps: true }
 );
+
 const UserModel = mongoose.model("User", userSchema);
 module.exports = UserModel;
