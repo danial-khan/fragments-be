@@ -318,7 +318,7 @@ const fragmentController = {
 
       const fragment = await FragmentModel.findById(id);
       if (!fragment.subscribers.includes(author)) {
-        fragments.subscribers.push(author);
+        fragment.subscribers.push(author);
         fragment.markModified("subscribers");
         await fragment.save();
       }
@@ -539,11 +539,13 @@ const fragmentController = {
           if (voteType === "upvote") {
             await notificationController.triggerReplyLikedNotification(
               targetReply,
+              fragment._id,
               userId
             );
           } else {
             await notificationController.triggerReplyDislikedNotification(
               targetReply,
+              fragment._id,
               userId
             );
           }

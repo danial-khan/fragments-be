@@ -56,7 +56,6 @@ categorySchema.index({ slug: 1 }, { unique: true });
 
 // Virtual for formatted createdAt date
 categorySchema.virtual('createdAtFormatted').get(function() {
-  console.log(this.createdAt);
   return this.createdAt?.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',

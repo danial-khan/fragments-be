@@ -4,10 +4,6 @@ const fetch = require("node-fetch");
 const jwt = require('jsonwebtoken');
 const google = async (req, res) => {
   const { method } = req.params;
-  console.log({
-    REDIRECT_URI: config.GOOGLE_CALLBACK_REDIRECT_URI,
-    method,
-  });
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.GOOGLE_CLIENT_ID}&redirect_uri=${config.GOOGLE_CALLBACK_REDIRECT_URI}/${method}&response_type=code&scope=profile email`;
   return res.redirect(url);
 };
