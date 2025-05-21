@@ -30,7 +30,7 @@ const notificationSchema = new Schema({
       'DISLIKE_FRAGMENT',   // Your fragment got disliked
       'LIKE_REPLY',         // Your reply got liked
       'DISLIKE_REPLY',      // Your reply got disliked
-      'MENTION'            // You were @mentioned
+      'MENTION'           // You were @mentioned
     ],
     required: true
   },

@@ -8,7 +8,9 @@ const notificationController = {
       const notifications = await Notification.find({
         recipient: req.user._id,
         isRead: false
-      }).populate('recipient', 'name').sort('-createdAt').limit(15).lean();
+      }).populate('recipient', 'name')
+      .populate('triggerUser', 'name')
+      .sort('-createdAt').limit(15).lean();
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching notifications', error });
@@ -22,7 +24,7 @@ const notificationController = {
       const skip = (page - 1) * limit;
 
       const [notifications, total] = await Promise.all([
-        Notification.find({ recipient: req.user._id }).sort('-createdAt').skip(skip).limit(limit).lean(),
+        Notification.find({ recipient: req.user._id }).populate('triggerUser', 'name').sort('-createdAt').skip(skip).limit(limit),
         Notification.countDocuments({ recipient: req.user._id })
       ]);
 
@@ -165,12 +167,12 @@ notificationController.triggerReplyNotification = async (reply, fragmentId, pare
   await Notification.insertMany(notifications);
 };
 
-notificationController.triggerReplyLikedNotification = async (reply, userId) => {
+notificationController.triggerReplyLikedNotification = async (reply, fragmentId, userId) => {
   if (!reply.author.equals(userId)) {
     await Notification.create({
       recipient: reply.author,
       triggerUser: userId,
-      fragment: reply.fragment,
+      fragment: fragmentId,
       reply: reply._id,
       notificationType: 'LIKE_REPLY',
       contentPreview: { replyText: reply.content.substring(0, 120) }
@@ -178,12 +180,12 @@ notificationController.triggerReplyLikedNotification = async (reply, userId) => 
   }
 };
 
-notificationController.triggerReplyDislikedNotification = async (reply, userId) => {
+notificationController.triggerReplyDislikedNotification = async (reply, fragmentId, userId) => {
   if (!reply.author.equals(userId)) {
     await Notification.create({
       recipient: reply.author,
       triggerUser: userId,
-      fragment: reply.fragment,
+      fragment: fragmentId,
       reply: reply._id,
       notificationType: 'DISLIKE_REPLY',
       contentPreview: { replyText: reply.content.substring(0, 120) }
