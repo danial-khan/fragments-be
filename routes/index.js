@@ -7,6 +7,7 @@ const authorsRouter = require('./authors');
 const categoryRouter = require("./cateogry");
 const fragmentRouter = require('./fragment');
 const notificationRouter = require("./notification");
+const trailRouter = require('./trail');
 
 const rootRouter = express.Router();
 
@@ -19,10 +20,11 @@ rootRouter.get(
 // other routes
 rootRouter.use("/auth", authRouter);
 rootRouter.use('/admin', adminRouter);
-rootRouter.use('/subscription', subscriptionRouter);
+rootRouter.use('/subscriptions', subscriptionRouter);
 rootRouter.use('/categories', categoryRouter);
 rootRouter.use('/fragments', fragmentRouter);
 rootRouter.use('/notifications', notificationRouter);
-rootRouter.use('/authors', authorsRouter)
+rootRouter.use('/authors', authorsRouter);
+rootRouter.use('/trails', trailRouter);
 
 module.exports = rootRouter;
