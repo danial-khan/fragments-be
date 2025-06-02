@@ -96,9 +96,13 @@ const fragmentController = {
         search,
         sortBy = "createdAt",
         sortOrder = "desc",
+        idne,
       } = req.query;
 
       const query = { isDeleted: false, status: "published" };
+      if (idne) {
+        query._id = { $ne: idne };
+      }
 
       if (category) {
         query.category = category;
