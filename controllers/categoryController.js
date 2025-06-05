@@ -1,6 +1,10 @@
 const CategoryModel = require("../database/models/category");
 
-const colors = ['blue', 'green', 'purple', 'red', 'amber', 'aqua', 'azure', 'beige', 'black', 'bronze', 'brown', 'coral', 'cyan', 'gold', 'gray', 'indigo', 'ivory', 'khaki', 'lavender', 'lime', 'magenta', 'maroon', 'mint', 'navy', 'olive', 'orange', 'peach', 'pink', 'plum', 'rose', 'salmon', 'sapphire', 'scarlet', 'silver', 'slate', 'tan', 'teal', 'tomato', 'turquoise', 'violet', 'white', 'yellow', 'emerald', 'fuchsia', 'orchid', 'periwinkle', 'ruby', 'sky', 'tangerine', 'wheat', 'copper', 'steel', 'forest', 'ocean'];
+const colors = [
+  "green", "purple", "red", "amber", "orange", "yellow", "lime",  "emerald",
+  "teal", "cyan", "sky", "blue", "indigo", "violet", 
+  "fuchsia", "pink", "rose", "slate", "gray", "zinc", "neutral", "stone"
+];
 
 const createCategory = async (req, res) => {
   try {
