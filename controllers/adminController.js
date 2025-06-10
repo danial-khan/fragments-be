@@ -13,7 +13,10 @@ const login = async (req, res) => {
         .json({ message: "Email and password are required." });
     }
 
-    const user = await UserModel.findOne({ email, type: "admin" });
+    const user = await UserModel.findOne({
+      email,
+      type: { $in: ["admin", "moderator"] },
+    });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
@@ -28,12 +31,13 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    const { name, email: userEmail, avatar, _id: userId } = user.toJSON();
+    const { name, email: userEmail, type, avatar, _id: userId } = user.toJSON();
     const token = jwt.sign(
-      { _id: userId, name, email: userEmail, avatar },
+      { _id: userId, name, email: userEmail, avatar, type },
       config.JWT_SECRET,
       { expiresIn: "7d" }
     );
+    
     res.cookie("session-token", token, {
       domain:
         process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
@@ -56,7 +60,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, type, password } = req.body;
     if (!name || !email || !password) {
       return res
         .status(400)
@@ -72,10 +76,11 @@ const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      type: "admin",
+      type,
     });
 
-    return res.status(201).json({ message: "Admin registered!" });
+    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+    return res.status(201).json({ message: `${capitalizedType} registered!` });
   } catch (error) {
     console.log(error);
     res.status(500).json({ success: false, message: "something went wrong" });
@@ -115,13 +120,13 @@ const getStats = async (_req, res) => {
     });
     const totalActive = await UserModel.countDocuments({
       type: {
-        $nin: ["admin"],
+        $nin: ["admin", "moderator"],
       },
       active: true,
     });
     const totalInactive = await UserModel.countDocuments({
       type: {
-        $nin: ["admin"],
+        $nin: ["admin", "moderator"],
       },
       active: false,
     });
@@ -183,11 +188,14 @@ const updateCredentialsStatus = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    const users = await UserModel.find({
-      type: {
-        $nin: ["admin"],
-      }
-    }, '-password').exec();
+    const users = await UserModel.find(
+      {
+        type: {
+          $nin: ["admin", "moderator"],
+        },
+      },
+      "-password"
+    ).exec();
 
     return res.status(200).json({
       users,
