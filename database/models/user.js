@@ -27,27 +27,31 @@ const userSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['student', 'author', 'admin'],
-      default: 'user'
+      enum: ["student", "author", "admin", "moderator"],
+      default: "student",
     },
     subscription: {
       id: String,
       plan: String,
       subscriptionDate: {
         type: Date,
-        default: null
+        default: null,
       },
     },
-    following: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: []
-    }],
-    followers: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: []
-    }]
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
   },
   { timestamps: true }
 );

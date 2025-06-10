@@ -12,7 +12,11 @@ module.exports.adminMiddleware = async (req, res, next) => {
 
     const decoded = jwt.verify(token, config.JWT_SECRET);
     req.user = decoded;
-    const user = await UserModel.findOne({ _id: decoded._id, type: "admin" });
+    const user = await UserModel.findOne({
+      _id: decoded._id,
+      type: { $in: ["admin", "moderator"] },
+    });
+    
     if (!user) {
       throw new Error("unauthorized");
     }
