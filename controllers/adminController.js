@@ -60,7 +60,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, type, password } = req.body;
+    const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res
         .status(400)
@@ -76,11 +76,11 @@ const register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      type,
+      type: "moderator",
+      active: true,
     });
 
-    const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
-    return res.status(201).json({ message: `${capitalizedType} registered!` });
+    return res.status(201).json({ message: "Moderator registered!" });
   } catch (error) {
     console.log(error);
     res.status(500).json({ success: false, message: "something went wrong" });
@@ -191,7 +191,7 @@ const getUsers = async (req, res) => {
     const users = await UserModel.find(
       {
         type: {
-          $nin: ["admin", "moderator"],
+          $nin: ["admin"],
         },
       },
       "-password"
