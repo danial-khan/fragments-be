@@ -11,7 +11,7 @@ const eventController = {
       const deviceInfo = parseUserAgent(userAgent);
       const ip =
         req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket.remoteAddress;;
+        req.socket.remoteAddress;
       const location = getLocationFromIP(req.ip);
 
       const eventPayload = {
@@ -23,7 +23,7 @@ const eventController = {
         timestamp,
       };
 
-      await eventService.logUserEvent(eventPayload);
+      // await eventService.logUserEvent(eventPayload);
       return res.status(200).json({ message: "Event tracked successfully" });
     } catch (error) {
       console.error("Track Error:", error);
