@@ -5,7 +5,7 @@ const { checkAdmin } = require("../middlewares/type");
 const categoryController = require("../controllers/categoryController");
 const adminRouter = express.Router();
 
-adminRouter.post("/register", adminController.register);
+adminRouter.post("/register", adminMiddleware, checkAdmin, adminController.register);
 adminRouter.post("/login", adminController.login);
 adminRouter.get("/session", adminMiddleware, adminController.getSession);
 adminRouter.get("/stats", adminMiddleware, adminController.getStats);
