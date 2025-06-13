@@ -8,6 +8,7 @@ const categoryRouter = require("./cateogry");
 const fragmentRouter = require('./fragment');
 const notificationRouter = require("./notification");
 const trailRouter = require('./trail');
+const eventRoutes = require("./event");
 
 const rootRouter = express.Router();
 
@@ -26,5 +27,6 @@ rootRouter.use('/fragments', fragmentRouter);
 rootRouter.use('/notifications', notificationRouter);
 rootRouter.use('/authors', authorsRouter);
 rootRouter.use('/trails', trailRouter);
+rootRouter.use("/events", eventRoutes);
 
 module.exports = rootRouter;
