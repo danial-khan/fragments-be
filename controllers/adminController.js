@@ -41,7 +41,7 @@ const login = async (req, res) => {
 
     res.cookie("session-token", token, {
       domain:
-        process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
+        process.env.NODE_ENV === "production" ? ".fragmenttrails.com" : "localhost",
       sameSite: "None",
       httpOnly: true,
       secure: true,
