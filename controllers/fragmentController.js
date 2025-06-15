@@ -119,7 +119,7 @@ const fragmentController = {
         .sort(sortOptions)
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit))
-        .populate("author", "username")
+        .populate("author", "name")
         .populate("category", "name");
 
       const total = await FragmentModel.countDocuments(query);
