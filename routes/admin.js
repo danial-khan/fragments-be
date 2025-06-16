@@ -17,6 +17,11 @@ adminRouter.get(
 );
 adminRouter.get('/students', adminMiddleware, adminController.getStudents);
 adminRouter.get('/users', adminMiddleware, adminController.getUsers);
+adminRouter.get(
+  "/fragments",
+  adminMiddleware,
+  adminController.getAllFragmentsForAdmin
+);
 adminRouter.post(
   "/replies/:status",
   adminMiddleware,

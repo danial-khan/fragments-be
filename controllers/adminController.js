@@ -1,5 +1,6 @@
 const UserModel = require("../database/models/user");
 const FragmentModel = require("../database/models/fragment");
+const FragmentModel = require("../database/models/fragment");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { config } = require("../config");
