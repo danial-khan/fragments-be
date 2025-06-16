@@ -10,6 +10,11 @@ adminRouter.post("/login", adminController.login);
 adminRouter.get("/session", adminMiddleware, adminController.getSession);
 adminRouter.get("/stats", adminMiddleware, adminController.getStats);
 adminRouter.get('/authors', adminMiddleware, adminController.getAuthors);
+adminRouter.get(
+  "/authors/all",
+  adminMiddleware,
+  adminController.getAuthorsFromUsersTable
+);
 adminRouter.get('/students', adminMiddleware, adminController.getStudents);
 adminRouter.get('/users', adminMiddleware, adminController.getUsers);
 adminRouter.get(
@@ -26,6 +31,11 @@ adminRouter.post(
   "/credentials-status/:status",
   adminMiddleware,
   adminController.updateCredentialsStatus
+);
+adminRouter.post(
+  "/fragments/:status",
+  adminMiddleware,
+  adminController.updateFragmentStatus
 );
 
 adminRouter.post(

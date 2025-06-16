@@ -157,6 +157,19 @@ const getAuthors = async (req, res) => {
   }
 };
 
+const getAuthorsFromUsersTable = async (req, res) => {
+  try {
+    const authors = await UserModel.find({ type: "author" })
+      .select("_i0d, name")
+      .exec();
+    return res.status(200).json({
+      authors,
+    });
+  } catch {
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
 const getStudents = async (req, res) => {
   try {
     const students = await UserCredentialsModel.find({ type: "student" })
@@ -235,10 +248,10 @@ const getAllFragmentsForAdmin = async (req, res) => {
       query.author = author;
     }
 
-    if (status) {
+    if (status === "published" || status === "blocked") {
       query.status = status;
     } else {
-      query.status = "published";
+      query.status = { $ne: "draft" };
     }
 
     if (search) {
@@ -246,7 +259,13 @@ const getAllFragmentsForAdmin = async (req, res) => {
     }
 
     const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+    if (sortBy === "views") {
+      sortOptions["viewCount"] = sortOrder === "desc" ? -1 : 1;
+    } else if (sortBy === "upvotes") {
+      sortOptions["upvotes.length"] = sortOrder === "desc" ? -1 : 1;
+    } else {
+      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+    }
 
     const fragments = await FragmentModel.find(query)
       .sort(sortOptions)
@@ -286,15 +305,34 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
+const updateFragmentStatus = async (req, res) => {
+  try {
+    const { fragmentId } = req.body;
+    const { status } = req.params;
+
+    await FragmentModel.updateOne({ _id: fragmentId }, { $set: { status } });
+
+    return res.status(200).json({
+      success: true,
+      message: `Fragment ${status} successfully`,
+    });
+  } catch (error) {
+    console.error("Error updating fragment status:", error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
 module.exports.adminController = {
   login,
   register,
   getSession,
   getStats,
   getAuthors,
+  getAuthorsFromUsersTable,
   getStudents,
   updateCredentialsStatus,
   getUsers,
   getAllFragmentsForAdmin,
   updateUserStatus,
+  updateFragmentStatus,
 };
