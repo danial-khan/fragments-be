@@ -290,120 +290,182 @@ const getAllFragmentsForAdmin = async (req, res) => {
 
 const getAllCommentsForAdmin = async (req, res) => {
   try {
-    let {
-      page = 1, limit = 10,
-      fragment: fragmentId,
-      author, status, category: categoryId,
-      search, sortBy = 'createdAt', sortOrder = 'desc',
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      author,
+      category,
+      search,
+      depth,
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = req.query;
 
-    page  = Number(page);
-    limit = Number(limit);
-
     const fragments = await FragmentModel.find({ isDeleted: false })
-      .select("title category replies")
       .populate("category", "name")
-      .populate({
-        path: "replies",
-        match: { isDeleted: false },
-        populate: [
-          {
-            path: "author",
-            select: "name",
-          },
-          {
-            path: "replies",
-            match: { isDeleted: false },
-            populate: [
-              {
-                path: "author",
-                select: "name",
-              },
-              {
-                path: "replies",
-                match: { isDeleted: false },
-                populate: {
-                  path: "author",
-                  select: "name",
-                },
-              },
-            ],
-          },
-        ],
+      .lean();
+
+    const allReplies = [];
+    const allAuthorIds = new Set();
+
+    const collectReplies = (
+      replies,
+      fragment,
+      currentDepth = 1,
+      parentReplyId = null
+    ) => {
+      if (currentDepth > 3) return;
+
+      replies.forEach((reply) => {
+        const authorId = reply.author;
+        if (authorId) allAuthorIds.add(String(authorId));
+
+        allReplies.push({
+          _id: reply._id,
+          content: reply.content,
+          authorId: String(authorId),
+          createdAt: reply.createdAt,
+          updatedAt: reply.updatedAt,
+          status: reply.status,
+          review: reply.review,
+          fragmentId: fragment._id,
+          fragmentTitle: fragment.title,
+          categoryId: fragment.category?._id || null,
+          categoryName: fragment.category?.name || "Uncategorized",
+          parentReplyId,
+          depth: currentDepth,
+        });
+
+        if (reply.replies && reply.replies.length > 0) {
+          collectReplies(reply.replies, fragment, currentDepth + 1, reply._id);
+        }
       });
+    };
 
-
-    let comments = fragments.flatMap(frag =>
-      frag.replies
-        .filter(r1 => !r1.isDeleted)
-        .map(r1 => ({
-          _id: r1._id,
-          content: r1.content,
-          author: { _id: r1.author._id, name: r1.author.name },
-          status: r1.status,
-          createdAt: r1.createdAt,
-          upvoteCount:   r1.upvotes.length,
-          downvoteCount: r1.downvotes.length,
-
-          fragmentId:           frag._id,
-          fragmentTitle:        frag.title,
-          fragmentCategoryId:   frag.category._id.toString(),
-          fragmentCategoryName: frag.category.name,
-
-          repliesLevel2: r1.replies
-            .filter(r2 => !r2.isDeleted)
-            .map(r2 => ({
-              _id: r2._id,
-              content: r2.content,
-              author: { _id: r2.author._id, name: r2.author.name },
-              status:      r2.status,
-              createdAt:   r2.createdAt,
-              upvoteCount:   r2.upvotes.length,
-              downvoteCount: r2.downvotes.length,
-
-              repliesLevel3: r2.replies
-                .filter(r3 => !r3.isDeleted)
-                .map(r3 => ({
-                  _id: r3._id,
-                  content: r3.content,
-                  author: { _id: r3.author._id, name: r3.author.name },
-                  status:      r3.status,
-                  createdAt:   r3.createdAt,
-                  upvoteCount:   r3.upvotes.length,
-                  downvoteCount: r3.downvotes.length,
-                })),
-            })),
-        }))
-    );
-
-    if (fragmentId) comments = comments.filter(c => c.fragmentId.toString() === fragmentId);
-    if (author)     comments = comments.filter(c => c.author._id.toString() === author);
-    if (status)     comments = comments.filter(c => c.status === status);
-    if (categoryId) comments = comments.filter(c => c.fragmentCategoryId === categoryId);
-    if (search) {
-      const term = search.toLowerCase();
-      comments = comments.filter(c => c.content.toLowerCase().includes(term));
+    // Step 3: Loop through all fragments and collect
+    for (const fragment of fragments) {
+      collectReplies(fragment.replies || [], fragment);
     }
 
-    const field = sortBy === 'upvoteCount' ? 'upvoteCount' : 'createdAt';
-    comments.sort((a, b) => {
-      const aVal = field === 'createdAt' ? a.createdAt.getTime() : a.upvoteCount;
-      const bVal = field === 'createdAt' ? b.createdAt.getTime() : b.upvoteCount;
-      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+    // Step 4: Fetch all authors in one query
+    const authorList = await UserModel.find({
+      _id: { $in: Array.from(allAuthorIds) },
+    })
+      .select("_id name")
+      .lean();
+
+    const authorMap = {};
+    authorList.forEach((user) => {
+      authorMap[String(user._id)] = user.name;
     });
 
-    const total = comments.length;
-    const pages = Math.ceil(total / limit);
-    const start = (page - 1) * limit;
-    const paged = comments.slice(start, start + limit);
+    // Step 5: Assign authorName to each reply
+    allReplies.forEach((reply) => {
+      reply.authorName = authorMap[reply.authorId] || null;
+    });
 
-    return res.json({ comments: paged, total, page, pages });
+    // Step 6: Filtering
+    let filtered = allReplies;
+
+    if (status) {
+      filtered = filtered.filter((r) => r.status === status);
+    }
+
+    if (author) {
+      filtered = filtered.filter((r) => String(r.authorId) === String(author));
+    }
+
+    if (category) {
+      filtered = filtered.filter(
+        (r) => String(r.categoryId) === String(category)
+      );
+    }
+
+    if (depth) {
+      const numericDepth = parseInt(depth);
+      if ([1, 2, 3].includes(numericDepth)) {
+        filtered = filtered.filter((r) => r.depth === numericDepth);
+      }
+    }
+
+    if (search) {
+      filtered = filtered.filter((r) =>
+        r.content.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    // Step 7: Sorting
+    filtered.sort((a, b) => {
+      const valA = a[sortBy];
+      const valB = b[sortBy];
+      if (!valA || !valB) return 0;
+      if (sortOrder === "asc") return valA > valB ? 1 : -1;
+      return valA < valB ? 1 : -1;
+    });
+
+    // Step 8: Pagination
+    const total = filtered.length;
+    const paginated = filtered.slice(
+      (page - 1) * limit,
+      (page - 1) * limit + parseInt(limit)
+    );
+
+    res.status(200).json({
+      replies: paginated,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+    });
   } catch (err) {
-    console.error('Error fetching comments for admin:', err);
-    return res.status(500).json({ error: err.message });
+    console.error("Admin get replies error:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 
+const toggleReplyStatus = async (req, res) => {
+  try {
+    const { fragmentId, replyId } = req.body;
+    let { status } = req.params;
+
+    const fragment = await FragmentModel.findById(fragmentId);
+    if (!fragment) {
+      return res.status(404).json({ error: "Fragment not found" });
+    }
+
+    let found = false;
+
+    const updateNestedReplyStatus = (replies) => {
+      return replies.map((reply) => {
+        if (reply._id.toString() === replyId.toString()) {
+          reply.status = status;
+          found = true;
+        }
+        if (reply.replies && reply.replies.length) {
+          reply.replies = updateNestedReplyStatus(reply.replies);
+        }
+        return reply;
+      });
+    };
+
+    fragment.replies = updateNestedReplyStatus(fragment.replies);
+
+    if (!found) {
+      return res.status(404).json({ error: "Reply not found at any depth" });
+    }
+
+    fragment.markModified("replies");
+
+    await fragment.save();
+
+    return res.status(200).json({
+      message: `Reply status updated to "${status}" successfully`,
+    });
+  } catch (err) {
+    console.error("Toggle reply status error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
 
 const updateUserStatus = async (req, res) => {
   try {
@@ -453,4 +515,5 @@ module.exports.adminController = {
   getAllCommentsForAdmin,
   updateUserStatus,
   updateFragmentStatus,
+  toggleReplyStatus,
 };
