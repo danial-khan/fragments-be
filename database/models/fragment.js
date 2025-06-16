@@ -2,40 +2,62 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 // Reply sub-schema for nested replies
-const replySchema = new Schema({
-  content: { type: String, required: true },
-  author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-  upvotes: [String],
-  downvotes: [String],
-  replies: [this], // This allows for nested replies
-  isDeleted: { type: Boolean, default: false }
-}, { timestamps: true });
+const replySchema = new Schema(
+  {
+    content: { type: String, required: true },
+    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+    upvotes: [String],
+    downvotes: [String],
+    replies: [this], // This allows for nested replies
+    review: {
+      type: String,
+      enum: ["not_aligned_with_policy", "pass"],
+      default: "pass",
+    },
+    isDeleted: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
 
 // Fragment main schema
-const fragmentSchema = new Schema({
-  title: { type: String, required: true },
-  category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
-  description: { type: String, required: true },
-  content: { type: String, required: true },
-  author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-  upvotes: [String],
-  downvotes: [String],
-  replies: [replySchema], // Embedded replies
-  tags: [{ type: String }],
-  isDeleted: { type: Boolean, default: false },
-  viewCount: { type: Number, default: 0 },
-  status: { type: String, enum: ['draft', 'published', 'blocked'], default: 'draft' },
-  subscribers: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    default: []
-  }],
-  subscriptionCount: { type: Number, default: 0 } // Denormalized count for performance
-}, { timestamps: true });
+const fragmentSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+    description: { type: String, required: true },
+    content: { type: String, required: true },
+    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+    upvotes: [String],
+    downvotes: [String],
+    review: {
+      type: String,
+      enum: ["not_aligned_with_policy", "pass"],
+      default: "pass",
+    },
+    replies: [replySchema], // Embedded replies
+    tags: [{ type: String }],
+    isDeleted: { type: Boolean, default: false },
+    viewCount: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ["draft", "published", "blocked"],
+      default: "draft",
+    },
+    subscribers: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
+    subscriptionCount: { type: Number, default: 0 }, // Denormalized count for performance
+  },
+  { timestamps: true }
+);
 
 // Virtual for vote count difference (upvotes - downvotes)
 fragmentSchema.virtual('voteScore').get(function() {
