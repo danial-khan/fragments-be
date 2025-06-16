@@ -288,6 +288,123 @@ const getAllFragmentsForAdmin = async (req, res) => {
   }
 };
 
+const getAllCommentsForAdmin = async (req, res) => {
+  try {
+    let {
+      page = 1, limit = 10,
+      fragment: fragmentId,
+      author, status, category: categoryId,
+      search, sortBy = 'createdAt', sortOrder = 'desc',
+    } = req.query;
+
+    page  = Number(page);
+    limit = Number(limit);
+
+    const fragments = await FragmentModel.find({ isDeleted: false })
+      .select("title category replies")
+      .populate("category", "name")
+      .populate({
+        path: "replies",
+        match: { isDeleted: false },
+        populate: [
+          {
+            path: "author",
+            select: "name",
+          },
+          {
+            path: "replies",
+            match: { isDeleted: false },
+            populate: [
+              {
+                path: "author",
+                select: "name",
+              },
+              {
+                path: "replies",
+                match: { isDeleted: false },
+                populate: {
+                  path: "author",
+                  select: "name",
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+
+    let comments = fragments.flatMap(frag =>
+      frag.replies
+        .filter(r1 => !r1.isDeleted)
+        .map(r1 => ({
+          _id: r1._id,
+          content: r1.content,
+          author: { _id: r1.author._id, name: r1.author.name },
+          status: r1.status,
+          createdAt: r1.createdAt,
+          upvoteCount:   r1.upvotes.length,
+          downvoteCount: r1.downvotes.length,
+
+          fragmentId:           frag._id,
+          fragmentTitle:        frag.title,
+          fragmentCategoryId:   frag.category._id.toString(),
+          fragmentCategoryName: frag.category.name,
+
+          repliesLevel2: r1.replies
+            .filter(r2 => !r2.isDeleted)
+            .map(r2 => ({
+              _id: r2._id,
+              content: r2.content,
+              author: { _id: r2.author._id, name: r2.author.name },
+              status:      r2.status,
+              createdAt:   r2.createdAt,
+              upvoteCount:   r2.upvotes.length,
+              downvoteCount: r2.downvotes.length,
+
+              repliesLevel3: r2.replies
+                .filter(r3 => !r3.isDeleted)
+                .map(r3 => ({
+                  _id: r3._id,
+                  content: r3.content,
+                  author: { _id: r3.author._id, name: r3.author.name },
+                  status:      r3.status,
+                  createdAt:   r3.createdAt,
+                  upvoteCount:   r3.upvotes.length,
+                  downvoteCount: r3.downvotes.length,
+                })),
+            })),
+        }))
+    );
+
+    if (fragmentId) comments = comments.filter(c => c.fragmentId.toString() === fragmentId);
+    if (author)     comments = comments.filter(c => c.author._id.toString() === author);
+    if (status)     comments = comments.filter(c => c.status === status);
+    if (categoryId) comments = comments.filter(c => c.fragmentCategoryId === categoryId);
+    if (search) {
+      const term = search.toLowerCase();
+      comments = comments.filter(c => c.content.toLowerCase().includes(term));
+    }
+
+    const field = sortBy === 'upvoteCount' ? 'upvoteCount' : 'createdAt';
+    comments.sort((a, b) => {
+      const aVal = field === 'createdAt' ? a.createdAt.getTime() : a.upvoteCount;
+      const bVal = field === 'createdAt' ? b.createdAt.getTime() : b.upvoteCount;
+      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+
+    const total = comments.length;
+    const pages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+    const paged = comments.slice(start, start + limit);
+
+    return res.json({ comments: paged, total, page, pages });
+  } catch (err) {
+    console.error('Error fetching comments for admin:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+
 const updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -333,6 +450,7 @@ module.exports.adminController = {
   updateCredentialsStatus,
   getUsers,
   getAllFragmentsForAdmin,
+  getAllCommentsForAdmin,
   updateUserStatus,
   updateFragmentStatus,
 };

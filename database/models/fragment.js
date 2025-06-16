@@ -16,6 +16,11 @@ const replySchema = new Schema(
       enum: ["not_aligned_with_policy", "pass"],
       default: "pass",
     },
+    status: {
+      type: String,
+      enum: ["published", "blocked"],
+      default: "published",
+    },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
