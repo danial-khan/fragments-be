@@ -12,6 +12,11 @@ adminRouter.get("/stats", adminMiddleware, adminController.getStats);
 adminRouter.get('/authors', adminMiddleware, adminController.getAuthors);
 adminRouter.get('/students', adminMiddleware, adminController.getStudents);
 adminRouter.get('/users', adminMiddleware, adminController.getUsers);
+adminRouter.get(
+  "/fragments",
+  adminMiddleware,
+  adminController.getAllFragmentsForAdmin
+);
 adminRouter.post(
   "/users/:status",
   adminMiddleware,

@@ -1,4 +1,5 @@
 const UserModel = require("../database/models/user");
+const FragmentModel = require("../database/models/fragment");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { config } = require("../config");
@@ -37,7 +38,7 @@ const login = async (req, res) => {
       config.JWT_SECRET,
       { expiresIn: "7d" }
     );
-    
+
     res.cookie("session-token", token, {
       domain:
         process.env.NODE_ENV === "production" ? ".mernsol.com" : "localhost",
@@ -206,6 +207,68 @@ const getUsers = async (req, res) => {
   }
 };
 
+const getAllFragmentsForAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      author,
+      status,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      idne,
+    } = req.query;
+
+    const query = { isDeleted: false };
+
+    if (idne) {
+      query._id = { $ne: idne };
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (author) {
+      query.author = author;
+    }
+
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = "published";
+    }
+
+    if (search) {
+      query.$text = { $search: search };
+    }
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    const fragments = await FragmentModel.find(query)
+      .sort(sortOptions)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .populate("author", "name")
+      .populate("category", "name");
+
+    const total = await FragmentModel.countDocuments(query);
+
+    res.status(200).json({
+      fragments,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+    });
+  } catch (err) {
+    console.error("Get fragments error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 const updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -221,7 +284,7 @@ const updateUserStatus = async (req, res) => {
   } catch {
     res.status(500).json({ success: false, message: "Something went wrong" });
   }
-}
+};
 
 module.exports.adminController = {
   login,
@@ -232,5 +295,6 @@ module.exports.adminController = {
   getStudents,
   updateCredentialsStatus,
   getUsers,
+  getAllFragmentsForAdmin,
   updateUserStatus,
 };
