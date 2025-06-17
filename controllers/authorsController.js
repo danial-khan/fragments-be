@@ -1,15 +1,18 @@
 const mongoose = require("mongoose");
 const UserModel = require("../database/models/user");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const trackUserEvent = require("../utils/trackEvent");
 
 const authorsController = {
   getAuthors: async (req, res) => {
     try {
       const { search } = req.query;
+      const currentUserId = req.user?._id;
 
       const matchStage = {
         type: "author",
         active: true,
+        _id: { $ne: currentUserId },
       };
 
       if (search) {
@@ -96,6 +99,18 @@ const authorsController = {
 
       await user.save();
       await author.save();
+
+      await trackUserEvent({
+        req,
+        eventPayload: {
+          eventType: isFollowing ? "unfollow_user" : "follow_user",
+          targetType: "User",
+          targetId: authorId,
+          metadata: {
+            authorName: author.name,
+          },
+        },
+      });
 
       return res.status(200).json({
         message: isFollowing ? "Unfollowed successfully" : "Followed successfully",

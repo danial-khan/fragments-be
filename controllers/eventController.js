@@ -1,30 +1,17 @@
-const eventService = require("../services/eventService");
-const parseUserAgent = require("../utils/deviceInfo");
-const getLocationFromIP = require("../utils/location");
+const trackUserEvent = require("../utils/trackEvent");
 
 const eventController = {
   track: async (req, res) => {
     try {
-      const userId = req.user.id;
-      const timestamp = new Date().toISOString();
-      const userAgent = req.headers["user-agent"] || "";
-      const deviceInfo = parseUserAgent(userAgent);
-      const ip =
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket.remoteAddress;
-      const location = getLocationFromIP(req.ip);
+      const eventPayload = req.body;
 
-      const eventPayload = {
-        userId,
-        ...req.body,
-        ip,
-        location,
-        deviceInfo,
-        timestamp,
-      };
+      const result = await trackUserEvent({ req, eventPayload });
 
-      // await eventService.logUserEvent(eventPayload);
-      return res.status(200).json({ message: "Event tracked successfully" });
+      if (result.success) {
+        return res.status(200).json({ message: "Event tracked successfully" });
+      } else {
+        return res.status(500).json({ error: "Failed to track event" });
+      }
     } catch (error) {
       console.error("Track Error:", error);
       return res.status(500).json({ error: "Internal Server Error" });
