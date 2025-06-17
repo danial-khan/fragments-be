@@ -343,12 +343,10 @@ const getAllCommentsForAdmin = async (req, res) => {
       });
     };
 
-    // Step 3: Loop through all fragments and collect
     for (const fragment of fragments) {
       collectReplies(fragment.replies || [], fragment);
     }
 
-    // Step 4: Fetch all authors in one query
     const authorList = await UserModel.find({
       _id: { $in: Array.from(allAuthorIds) },
     })
@@ -360,12 +358,10 @@ const getAllCommentsForAdmin = async (req, res) => {
       authorMap[String(user._id)] = user.name;
     });
 
-    // Step 5: Assign authorName to each reply
     allReplies.forEach((reply) => {
       reply.authorName = authorMap[reply.authorId] || null;
     });
 
-    // Step 6: Filtering
     let filtered = allReplies;
 
     if (status) {
@@ -395,16 +391,29 @@ const getAllCommentsForAdmin = async (req, res) => {
       );
     }
 
-    // Step 7: Sorting
     filtered.sort((a, b) => {
       const valA = a[sortBy];
       const valB = b[sortBy];
-      if (!valA || !valB) return 0;
-      if (sortOrder === "asc") return valA > valB ? 1 : -1;
-      return valA < valB ? 1 : -1;
+
+      if (sortBy === "createdAt" || sortBy === "updatedAt") {
+        const timeA = new Date(valA).getTime();
+        const timeB = new Date(valB).getTime();
+        return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+      }
+
+      if (sortBy === "depth") {
+        return sortOrder === "asc" ? valA - valB : valB - valA;
+      }
+
+      if (typeof valA === "string" && typeof valB === "string") {
+        return sortOrder === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
+      }
+
+      return 0;
     });
 
-    // Step 8: Pagination
     const total = filtered.length;
     const paginated = filtered.slice(
       (page - 1) * limit,
