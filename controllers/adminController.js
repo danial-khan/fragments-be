@@ -263,7 +263,7 @@ const getAllFragmentsForAdmin = async (req, res) => {
     if (sortBy === "views") {
       sortOptions["viewCount"] = sortOrder === "desc" ? -1 : 1;
     } else if (sortBy === "upvotes") {
-      sortOptions["upvotes.length"] = sortOrder === "desc" ? -1 : 1;
+      sortOptions["upvotes.size"] = sortOrder === "desc" ? 1 : -1;
     } else {
       sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
