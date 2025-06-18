@@ -5,37 +5,63 @@ const { checkAdmin } = require("../middlewares/type");
 const categoryController = require("../controllers/categoryController");
 const adminRouter = express.Router();
 
-adminRouter.post("/register", checkAdmin, adminController.register);
+adminRouter.post("/register", adminMiddleware, checkAdmin, adminController.register);
 adminRouter.post("/login", adminController.login);
 adminRouter.get("/session", adminMiddleware, adminController.getSession);
 adminRouter.get("/stats", adminMiddleware, adminController.getStats);
 adminRouter.get('/authors', adminMiddleware, adminController.getAuthors);
+adminRouter.get(
+  "/authors/all",
+  adminMiddleware,
+  adminController.getAuthorsFromUsersTable
+);
 adminRouter.get('/students', adminMiddleware, adminController.getStudents);
 adminRouter.get('/users', adminMiddleware, adminController.getUsers);
+adminRouter.get(
+  "/fragments",
+  adminMiddleware,
+  adminController.getAllFragmentsForAdmin
+);
+adminRouter.post(
+  "/replies/:status",
+  adminMiddleware,
+  adminController.toggleReplyStatus
+);
+adminRouter.get(
+  "/comments",
+  adminMiddleware,
+  adminController.getAllCommentsForAdmin
+);
+adminRouter.get(
+  "/fragments",
+  adminMiddleware,
+  adminController.getAllFragmentsForAdmin
+);
 adminRouter.post(
   "/users/:status",
   adminMiddleware,
-  checkAdmin,
   adminController.updateUserStatus
 );
 adminRouter.post(
   "/credentials-status/:status",
   adminMiddleware,
-  checkAdmin,
   adminController.updateCredentialsStatus
+);
+adminRouter.post(
+  "/fragments/:status",
+  adminMiddleware,
+  adminController.updateFragmentStatus
 );
 
 adminRouter.post(
   "/categories",
   adminMiddleware,
-  checkAdmin,
   categoryController.createCategory
 );
 adminRouter.get('/categories', adminMiddleware, categoryController.getCategories);
 adminRouter.delete(
   "/categories/:id",
   adminMiddleware,
-  checkAdmin,
   categoryController.deleteCategory
 );
 
