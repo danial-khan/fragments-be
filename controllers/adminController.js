@@ -61,7 +61,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, type, password } = req.body;
     if (!name || !email || !password) {
       return res
         .status(400)
@@ -207,6 +207,7 @@ const getUsers = async (req, res) => {
         type: {
           $nin: ["admin"],
         },
+        isDeleted: false,
       },
       "-password"
     ).exec();
@@ -510,6 +511,29 @@ const updateFragmentStatus = async (req, res) => {
   }
 };
 
+const softDeleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    await UserModel.updateOne({ _id: userId }, { $set: { isDeleted: true } });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
 module.exports.adminController = {
   login,
   register,
@@ -525,4 +549,5 @@ module.exports.adminController = {
   updateUserStatus,
   updateFragmentStatus,
   toggleReplyStatus,
+  softDeleteUser,
 };

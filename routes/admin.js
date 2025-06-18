@@ -53,6 +53,13 @@ adminRouter.post(
   adminController.updateFragmentStatus
 );
 
+adminRouter.delete(
+  "/users/:userId",
+  adminMiddleware,
+  checkAdmin,
+  adminController.softDeleteUser
+);
+
 adminRouter.post(
   "/categories",
   adminMiddleware,

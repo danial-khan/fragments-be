@@ -41,7 +41,8 @@ const categorySchema = new mongoose.Schema(
       type: String,
       default: "",
       maxlength: [500, "Description cannot exceed 500 characters"]
-    }
+    },
+    isDeleted: { type: Boolean, default: false },
   },
   { 
     timestamps: true,

@@ -23,6 +23,7 @@ const userCredentialsSchema = new mongoose.Schema(
       enum: ["approved", "rejected", "pending"],
       default: "pending",
     },
+    isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

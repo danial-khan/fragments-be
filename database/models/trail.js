@@ -1,33 +1,37 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
-const trailSchema = new Schema({
-  authorId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+const trailSchema = new Schema(
+  {
+    authorId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    fragmentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Fragment",
+      required: true,
+    },
+    trailId: {
+      type: Schema.Types.ObjectId,
+      ref: "Fragment",
+      required: true,
+    },
+    suggestedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    isDeleted: { type: Boolean, default: false },
   },
-  fragmentId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Fragment', 
-    required: true 
-  },
-  trailId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Fragment', 
-    required: true 
-  },
-  suggestedBy: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
-  },
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
-  }
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 // Indexes for better query performance
 trailSchema.index({ fragmentId: 1 });
