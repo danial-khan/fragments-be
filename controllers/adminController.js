@@ -61,7 +61,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, type, password } = req.body;
     if (!name || !email || !password) {
       return res
         .status(400)
