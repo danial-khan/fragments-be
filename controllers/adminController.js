@@ -252,6 +252,25 @@ const getUsers = async (req, res) => {
   }
 };
 
+const getUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await UserModel.findById(userId)
+      .select("-password -verificationCode -resetCode")
+      .populate("followers", "name")
+      .populate("following", "name");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const credentials = await UserCredentialsModel.findOne({ userId });
+
+    return res.json({ user, credentials });
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching user details" });
+  }
+};
+
 const getAllFragmentsForAdmin = async (req, res) => {
   try {
     const {
@@ -769,6 +788,7 @@ module.exports.adminController = {
   getStudents,
   updateCredentialsStatus,
   getUsers,
+  getUserDetails,
   getAllFragmentsForAdmin,
   getAllCommentsForAdmin,
   updateUserStatus,

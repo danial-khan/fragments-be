@@ -18,6 +18,11 @@ adminRouter.get(
 adminRouter.get('/students', adminMiddleware, adminController.getStudents);
 adminRouter.get('/users', adminMiddleware, adminController.getUsers);
 adminRouter.get(
+  "/users/:userId",
+  adminMiddleware,
+  adminController.getUserDetails
+);
+adminRouter.get(
   "/fragments",
   adminMiddleware,
   adminController.getAllFragmentsForAdmin
