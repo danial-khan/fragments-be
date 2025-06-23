@@ -29,7 +29,7 @@ const fragmentSchema = new Schema({
   tags: [{ type: String }],
   isDeleted: { type: Boolean, default: false },
   viewCount: { type: Number, default: 0 },
-  status: { type: String, enum: ['draft', 'published'], default: 'draft' },
+  status: { type: String, enum: ['draft', 'published', 'blocked'], default: 'draft' },
   subscribers: [{
     type: Schema.Types.ObjectId,
     ref: 'User',

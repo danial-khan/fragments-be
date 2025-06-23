@@ -67,7 +67,11 @@ const fragmentController = {
   // Get a single fragment by ID with populated author and category
   async getFragment(req, res) {
     try {
-      const fragment = await FragmentModel.findById(req.params.id)
+      const fragment = await FragmentModel.find({
+        _id: req.params.id,
+        isDeleted: false,
+        status: "published",
+      })
         .populate("author", "name username email")
         .populate("category", "name");
       await populateAuthors(fragment.replies);
@@ -148,7 +152,7 @@ const fragmentController = {
         sortOrder = "desc",
       } = req.query;
 
-      const query = { isDeleted: false, author: userId };
+      const query = { isDeleted: false, status: "published", author: userId };
 
       if (category) {
         query.category = category;
@@ -189,6 +193,7 @@ const fragmentController = {
       const fragments = await FragmentModel.find({
         author: userId,
         isDeleted: false,
+        status: "published",
       })
         .populate("author", "username")
         .populate("category", "name");
@@ -232,7 +237,11 @@ const fragmentController = {
       const { title, category, description, content, status } = req.body;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.findById(id);
+      const fragment = await FragmentModel.find({
+        _id: id,
+        isDeleted: false,
+        status: "published",
+      });
 
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
@@ -287,7 +296,11 @@ const fragmentController = {
       const { id } = req.params;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.findById(id);
+      const fragment = await FragmentModel.find({
+        _id: id,
+        isDeleted: false,
+        status: "published",
+      });
 
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
@@ -406,7 +419,11 @@ const fragmentController = {
       const { fragmentId, replyId } = req.params;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.findById(fragmentId);
+      const fragment = await FragmentModel.find({
+        _id: fragmentId,
+        isDeleted: false,
+        status: "published",
+      });
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
       }
@@ -581,7 +598,11 @@ const fragmentController = {
         return res.status(400).json({ error: "Invalid status" });
       }
 
-      const fragment = await FragmentModel.findById(id);
+      const fragment = await FragmentModel.find({
+        _id: req.params.id,
+        isDeleted: false,
+        status: "published",
+      });
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
       }

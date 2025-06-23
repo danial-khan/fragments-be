@@ -18,6 +18,7 @@ const login = async (req, res) => {
     const user = await UserModel.findOne({
       email,
       type: { $in: ["admin", "moderator"] },
+      isDeleted: false,
     });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password." });
@@ -71,6 +72,13 @@ const register = async (req, res) => {
         .json({ message: "name, email and password fields are required." });
     }
 
+    const existingUser = await UserModel.findOne({ email, isDeleted: false });
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ message: "A moderator with this email already exists." });
+    }
+
     const hashedPassword = crypto
       .createHash("sha256")
       .update(password)
@@ -105,34 +113,40 @@ const getStats = async (_req, res) => {
     const activeAuthors = await UserCredentialsModel.countDocuments({
       type: "author",
       status: "approved",
+      isDeleted: false,
     });
     const inActiveAuthors = await UserCredentialsModel.countDocuments({
       type: "author",
       status: {
         $ne: "approved",
       },
+      isDeleted: false,
     });
     const activeStudents = await UserCredentialsModel.countDocuments({
       type: "student",
       status: "approved",
+      isDeleted: false,
     });
     const inActiveStudents = await UserCredentialsModel.countDocuments({
       type: "student",
       status: {
         $ne: "approved",
       },
+      isDeleted: false,
     });
     const totalActive = await UserModel.countDocuments({
       type: {
         $nin: ["admin", "moderator"],
       },
       active: true,
+      isDeleted: false,
     });
     const totalInactive = await UserModel.countDocuments({
       type: {
         $nin: ["admin", "moderator"],
       },
       active: false,
+      isDeleted: false,
     });
     return res.status(200).json({
       activeAuthors,
@@ -196,6 +210,14 @@ const updateCredentialsStatus = async (req, res) => {
   try {
     const { credentialsId } = req.body;
     const { status } = req.params;
+
+    const credentials = await UserCredentialsModel.find({
+      isDeleted: false,
+    });
+    if (!credentials) {
+      return res.status(400).json({ message: "Credentials not found." });
+    }
+
     await UserCredentialsModel.updateOne(
       { _id: credentialsId },
       { $set: { status } }
@@ -244,7 +266,6 @@ const getAllFragmentsForAdmin = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
-    // Validate fragmentId early
     if (fragmentId && !mongoose.Types.ObjectId.isValid(fragmentId)) {
       return res.status(200).json({
         fragments: [],
@@ -254,7 +275,6 @@ const getAllFragmentsForAdmin = async (req, res) => {
       });
     }
 
-    // Build base match filter
     const match = { isDeleted: false };
     if (fragmentId) match._id = mongoose.Types.ObjectId(fragmentId);
     if (category) match.category = mongoose.Types.ObjectId(category);
@@ -272,7 +292,6 @@ const getAllFragmentsForAdmin = async (req, res) => {
     let total;
 
     if (sortBy === "upvotes") {
-      // 1) Aggregation pipeline for upvote sorting + pagination:
       const pipeline = [
         { $match: match },
         {
@@ -285,19 +304,15 @@ const getAllFragmentsForAdmin = async (req, res) => {
         { $limit: parseInt(limit, 10) },
       ];
 
-      // 2) Run aggregation
       const aggResults = await FragmentModel.aggregate(pipeline);
 
-      // 3) Populate the paginated slice
       fragments = await FragmentModel.populate(aggResults, [
         { path: "author", select: "name" },
         { path: "category", select: "name" },
       ]);
 
-      // 4) Total count for pagination controls
       total = await FragmentModel.countDocuments(match);
     } else {
-      // Non-upvotes sorting: keep your existing find+sort+skip+limit+populate
       const sortField = sortBy === "views" ? "viewCount" : sortBy;
       const direction = sortOrder === "desc" ? -1 : 1;
 
@@ -528,6 +543,16 @@ const updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.body;
     const { status } = req.params;
+
+    const user = await UserModel.findOne({
+      _id: userId,
+      isDeleted: false,
+      type: { $in: ["admin", "moderator"] },
+    });
+    if (!user) {
+      return res.status(401).json({ message: "User not found." });
+    }
+
     await UserModel.updateOne(
       { _id: userId },
       { $set: { active: status === "active" } }
@@ -545,6 +570,15 @@ const updateFragmentStatus = async (req, res) => {
   try {
     const { fragmentId } = req.body;
     const { status } = req.params;
+
+    const fragment = await FragmentModel.findOne({
+      _id: fragmentId,
+      isDeleted: false,
+      type: { $in: ["admin", "moderator"] },
+    });
+    if (!fragment) {
+      return res.status(401).json({ message: "Fragment not found." });
+    }
 
     await FragmentModel.updateOne({ _id: fragmentId }, { $set: { status } });
 
