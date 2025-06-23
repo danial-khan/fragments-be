@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const { default: mongoose } = require("mongoose");
 
 const login = async (req, res) => {
   try {
@@ -238,15 +239,24 @@ const getAllFragmentsForAdmin = async (req, res) => {
       author,
       status,
       search,
+      fragmentId,
       sortBy = "createdAt",
       sortOrder = "desc",
-      idne,
     } = req.query;
+
+    if (fragmentId && !mongoose.Types.ObjectId.isValid(fragmentId)) {
+      return res.status(200).json({
+        fragments: [],
+        total: 0,
+        page: parseInt(page),
+        pages: 0,
+      });
+    }
 
     const query = { isDeleted: false };
 
-    if (idne) {
-      query._id = { $ne: idne };
+    if (fragmentId) {
+      query._id = fragmentId;
     }
 
     if (category) {
@@ -306,6 +316,7 @@ const getAllCommentsForAdmin = async (req, res) => {
       author,
       category,
       search,
+      fragmentId,
       depth,
       sortBy = "createdAt",
       sortOrder = "desc",
@@ -379,6 +390,12 @@ const getAllCommentsForAdmin = async (req, res) => {
 
     if (author) {
       filtered = filtered.filter((r) => String(r.authorId) === String(author));
+    }
+
+    if (fragmentId) {
+      filtered = filtered.filter(
+        (r) => String(r.fragmentId) === String(fragmentId)
+      );
     }
 
     if (category) {
