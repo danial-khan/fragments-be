@@ -53,13 +53,6 @@ adminRouter.post(
   adminController.updateFragmentStatus
 );
 
-adminRouter.delete(
-  "/users/:userId",
-  adminMiddleware,
-  checkAdmin,
-  adminController.softDeleteUser
-);
-
 adminRouter.post(
   "/categories",
   adminMiddleware,
@@ -70,6 +63,27 @@ adminRouter.delete(
   "/categories/:id",
   adminMiddleware,
   categoryController.deleteCategory
+);
+
+adminRouter.delete(
+  "/users/:userId",
+  adminMiddleware,
+  checkAdmin,
+  adminController.softDeleteUser
+);
+
+adminRouter.delete(
+  "/authors/:authorId",
+  adminMiddleware,
+  checkAdmin,
+  adminController.softDeleteAuthor
+);
+
+adminRouter.delete(
+  "/students/:studentId",
+  adminMiddleware,
+  checkAdmin,
+  adminController.softDeleteStudent
 );
 
 module.exports = adminRouter;

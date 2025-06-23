@@ -41,7 +41,9 @@ const login = async (req, res) => {
 
     res.cookie("session-token", token, {
       domain:
-        process.env.NODE_ENV === "production" ? ".fragmenttrails.com" : "localhost",
+        process.env.NODE_ENV === "production"
+          ? ".fragmenttrails.com"
+          : "localhost",
       sameSite: "None",
       httpOnly: true,
       secure: true,
@@ -146,9 +148,12 @@ const getStats = async (_req, res) => {
 
 const getAuthors = async (req, res) => {
   try {
-    const authors = await UserCredentialsModel.find({ type: "author" })
+    const authors = await UserCredentialsModel.find({
+      type: "author",
+      isDeleted: false,
+    })
       .limit(100)
-      .populate("userId", "name, email");
+      .populate("userId", "name email");
     return res.status(200).json({
       authors,
     });
@@ -159,8 +164,8 @@ const getAuthors = async (req, res) => {
 
 const getAuthorsFromUsersTable = async (req, res) => {
   try {
-    const authors = await UserModel.find({ type: "author" })
-      .select("_i0d, name")
+    const authors = await UserModel.find({ type: "author", isDeleted: false })
+      .select("_id, name")
       .exec();
     return res.status(200).json({
       authors,
@@ -172,7 +177,10 @@ const getAuthorsFromUsersTable = async (req, res) => {
 
 const getStudents = async (req, res) => {
   try {
-    const students = await UserCredentialsModel.find({ type: "student" })
+    const students = await UserCredentialsModel.find({
+      type: "student",
+      isDeleted: false,
+    })
       .limit(100)
       .populate("userId", "name, email");
     return res.status(200).json({
@@ -515,7 +523,10 @@ const softDeleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findOne({
+      _id: userId,
+      isDeleted: false,
+    });
     if (!user) {
       return res
         .status(404)
@@ -527,6 +538,66 @@ const softDeleteUser = async (req, res) => {
     return res
       .status(200)
       .json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
+const softDeleteAuthor = async (req, res) => {
+  try {
+    const { authorId } = req.params;
+
+    const author = await UserCredentialsModel.findOne({
+      _id: authorId,
+      isDeleted: false,
+    });
+    if (!author) {
+      return res.status(404).json({
+        success: false,
+        message: "Author not found or already deleted",
+      });
+    }
+
+    await UserCredentialsModel.updateOne(
+      { _id: authorId },
+      { $set: { isDeleted: true } }
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Author deleted successfully" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
+
+const softDeleteStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await UserCredentialsModel.findOne({
+      _id: studentId,
+      isDeleted: false,
+    });
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+
+    await UserCredentialsModel.updateOne(
+      { _id: studentId },
+      { $set: { isDeleted: true } }
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Student deleted successfully" });
   } catch (err) {
     return res
       .status(500)
@@ -550,4 +621,6 @@ module.exports.adminController = {
   updateFragmentStatus,
   toggleReplyStatus,
   softDeleteUser,
+  softDeleteAuthor,
+  softDeleteStudent,
 };
