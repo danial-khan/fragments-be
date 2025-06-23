@@ -357,7 +357,6 @@ const getAllFragmentsForAdmin = async (req, res) => {
   }
 };
 
-
 const getAllCommentsForAdmin = async (req, res) => {
   try {
     const {
@@ -426,11 +425,17 @@ const getAllCommentsForAdmin = async (req, res) => {
 
     const authorMap = {};
     authorList.forEach((user) => {
-      authorMap[String(user._id)] = user.name;
+      authorMap[String(user._id)] = {
+        _id: String(user._id),
+        name: user.name,
+      };
     });
 
     allReplies.forEach((reply) => {
-      reply.authorName = authorMap[reply.authorId] || null;
+      reply.author = authorMap[reply.authorId] || {
+        _id: reply.authorId,
+        name: null,
+      };
     });
 
     let filtered = allReplies;
