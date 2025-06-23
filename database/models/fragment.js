@@ -10,7 +10,8 @@ const replySchema = new Schema({
   upvotes: [String],
   downvotes: [String],
   replies: [this], // This allows for nested replies
-  isDeleted: { type: Boolean, default: false }
+  isDeleted: { type: Boolean, default: false },
+  status: { type: String, enum: ['published', 'blocked'], default: 'published' },
 }, { timestamps: true });
 
 // Fragment main schema

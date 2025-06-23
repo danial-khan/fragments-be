@@ -446,7 +446,12 @@ const toggleReplyStatus = async (req, res) => {
     const { fragmentId, replyId } = req.body;
     let { status } = req.params;
 
-    const fragment = await FragmentModel.findById(fragmentId);
+    console.log("Toggle reply status:", { fragmentId, replyId, status });
+
+    const fragment = await FragmentModel.findOne({
+      _id: fragmentId,
+      isDeleted: false,
+    });
     if (!fragment) {
       return res.status(404).json({ error: "Fragment not found" });
     }
@@ -605,6 +610,87 @@ const softDeleteStudent = async (req, res) => {
   }
 };
 
+const softDeleteFragment = async (req, res) => {
+  try {
+    const { fragmentId } = req.params;
+
+    const fragment = await FragmentModel.findOne({
+      _id: fragmentId,
+      isDeleted: false,
+    });
+    if (!fragment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Fragment not found" });
+    }
+
+    await FragmentModel.updateOne(
+      { _id: fragmentId },
+      { $set: { isDeleted: true } }
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Fragment deleted successfully" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
+const softDeleteReply = async (req, res) => {
+  try {
+    const { replyId } = req.params;
+    const { fragmentId } = req.body;
+
+    const fragment = await FragmentModel.findOne({
+      _id: fragmentId,
+      isDeleted: false,
+    });
+    if (!fragment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Fragment not found" });
+    }
+
+    let found = false;
+
+    const updateNestedReplyStatus = (replies) => {
+      return replies.map((reply) => {
+        if (reply._id.toString() === replyId.toString()) {
+          reply.isDeleted = true;
+          found = true;
+        }
+        if (reply.replies && reply.replies.length) {
+          reply.replies = updateNestedReplyStatus(reply.replies);
+        }
+        return reply;
+      });
+    };
+
+    fragment.replies = updateNestedReplyStatus(fragment.replies);
+
+    if (!found) {
+      return res.status(404).json({ error: "Reply not found at any depth" });
+    }
+
+    fragment.markModified("replies");
+
+    await fragment.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Fragment deleted successfully" });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Something went wrong" });
+  }
+};
+
+
+
 module.exports.adminController = {
   login,
   register,
@@ -623,4 +709,6 @@ module.exports.adminController = {
   softDeleteUser,
   softDeleteAuthor,
   softDeleteStudent,
+  softDeleteFragment,
+  softDeleteReply,
 };

@@ -22,11 +22,13 @@ adminRouter.get(
   adminMiddleware,
   adminController.getAllFragmentsForAdmin
 );
+
 adminRouter.post(
   "/replies/:status",
   adminMiddleware,
   adminController.toggleReplyStatus
 );
+
 adminRouter.get(
   "/comments",
   adminMiddleware,
@@ -84,6 +86,19 @@ adminRouter.delete(
   adminMiddleware,
   checkAdmin,
   adminController.softDeleteStudent
+);
+
+adminRouter.delete(
+  "/fragments/:fragmentId",
+  adminMiddleware,
+  checkAdmin,
+  adminController.softDeleteFragment
+);
+
+adminRouter.delete(
+  "/replies/:replyId",
+  adminMiddleware,
+  adminController.softDeleteReply
 );
 
 module.exports = adminRouter;
