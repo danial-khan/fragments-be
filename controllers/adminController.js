@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
-const { default: mongoose } = require("mongoose");
+const { mongoose } = require("mongoose");
 
 const login = async (req, res) => {
   try {
@@ -244,68 +244,85 @@ const getAllFragmentsForAdmin = async (req, res) => {
       sortOrder = "desc",
     } = req.query;
 
+    // Validate fragmentId early
     if (fragmentId && !mongoose.Types.ObjectId.isValid(fragmentId)) {
       return res.status(200).json({
         fragments: [],
         total: 0,
-        page: parseInt(page),
+        page: parseInt(page, 10),
         pages: 0,
       });
     }
 
-    const query = { isDeleted: false };
-
-    if (fragmentId) {
-      query._id = fragmentId;
-    }
-
-    if (category) {
-      query.category = category;
-    }
-
-    if (author) {
-      query.author = author;
-    }
-
+    // Build base match filter
+    const match = { isDeleted: false };
+    if (fragmentId) match._id = mongoose.Types.ObjectId(fragmentId);
+    if (category) match.category = mongoose.Types.ObjectId(category);
+    if (author) match.author = mongoose.Types.ObjectId(author);
     if (status === "published" || status === "blocked") {
-      query.status = status;
+      match.status = status;
     } else {
-      query.status = { $ne: "draft" };
+      match.status = { $ne: "draft" };
     }
-
     if (search) {
-      query.$text = { $search: search };
+      match.$text = { $search: search };
     }
 
-    const sortOptions = {};
-    if (sortBy === "views") {
-      sortOptions["viewCount"] = sortOrder === "desc" ? -1 : 1;
-    } else if (sortBy === "upvotes") {
-      sortOptions["upvotes.size"] = sortOrder === "desc" ? 1 : -1;
+    let fragments;
+    let total;
+
+    if (sortBy === "upvotes") {
+      // 1) Aggregation pipeline for upvote sorting + pagination:
+      const pipeline = [
+        { $match: match },
+        {
+          $addFields: {
+            upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+          },
+        },
+        { $sort: { upvoteCount: sortOrder === "desc" ? -1 : 1 } },
+        { $skip: (parseInt(page, 10) - 1) * parseInt(limit, 10) },
+        { $limit: parseInt(limit, 10) },
+      ];
+
+      // 2) Run aggregation
+      const aggResults = await FragmentModel.aggregate(pipeline);
+
+      // 3) Populate the paginated slice
+      fragments = await FragmentModel.populate(aggResults, [
+        { path: "author", select: "name" },
+        { path: "category", select: "name" },
+      ]);
+
+      // 4) Total count for pagination controls
+      total = await FragmentModel.countDocuments(match);
     } else {
-      sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
+      // Non-upvotes sorting: keep your existing find+sort+skip+limit+populate
+      const sortField = sortBy === "views" ? "viewCount" : sortBy;
+      const direction = sortOrder === "desc" ? -1 : 1;
+
+      fragments = await FragmentModel.find(match)
+        .sort({ [sortField]: direction })
+        .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
+        .limit(parseInt(limit, 10))
+        .populate("author", "name")
+        .populate("category", "name");
+
+      total = await FragmentModel.countDocuments(match);
     }
 
-    const fragments = await FragmentModel.find(query)
-      .sort(sortOptions)
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate("author", "name")
-      .populate("category", "name");
-
-    const total = await FragmentModel.countDocuments(query);
-
-    res.status(200).json({
+    return res.status(200).json({
       fragments,
       total,
-      page: parseInt(page),
-      pages: Math.ceil(total / parseInt(limit)),
+      page: parseInt(page, 10),
+      pages: Math.ceil(total / parseInt(limit, 10)),
     });
   } catch (err) {
     console.error("Get fragments error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
+
 
 const getAllCommentsForAdmin = async (req, res) => {
   try {
