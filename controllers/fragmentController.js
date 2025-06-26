@@ -97,7 +97,7 @@ const fragmentController = {
     try {
       const {
         page = 1,
-        limit = 10,
+        limit = 9,
         category,
         search,
         sortBy = "createdAt",
