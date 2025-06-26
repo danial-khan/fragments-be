@@ -6,10 +6,12 @@ const authorsController = {
   getAuthors: async (req, res) => {
     try {
       const { search } = req.query;
+      const currentUserId = req.user?._id;
 
       const matchStage = {
         type: "author",
         active: true,
+        _id: { $ne: currentUserId },
       };
 
       if (search) {
@@ -39,6 +41,7 @@ const authorsController = {
             _id: 1,
             name: 1,
             email: 1,
+            bio: 1,
             avatar: 1,
             type: 1,
             createdAt: 1,
