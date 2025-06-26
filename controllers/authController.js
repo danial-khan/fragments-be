@@ -6,13 +6,12 @@ const mailer = require("../utils/mailer");
 const { config } = require("../config");
 const jwt = require("jsonwebtoken");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const {uploadToCloudinary, deleteFromCloudinary} = require("../utils/cloudinary");
 
-// Registration function
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields are required." });
     }
@@ -276,6 +275,71 @@ const changePassword = async (req, res) => {
   }
 };
 
+const editProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, bio } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Name is required." });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    user.name = name;
+    if (bio !== undefined) user.bio = bio;
+
+    if (req.file) {
+      if (user.avatar?.public_id) {
+        await deleteFromCloudinary(user.avatar.public_id);
+      }
+      const uploaded = await uploadToCloudinary(req.file);
+      user.avatar = {
+        public_id: uploaded.public_id,
+        url: uploaded.url,
+      };
+    }
+
+    await user.save();
+    const {
+      name: uName,
+      email,
+      subscription,
+      type,
+      avatar,
+      _id,
+      bio: uBio,
+    } = user.toJSON();
+
+    const userCredentialsDoc = await UserCredentialsModel.findOne({
+      userId: _id,
+    });
+    const userCredentials = userCredentialsDoc
+      ? (() => {
+          const { file, ...rest } = userCredentialsDoc.toJSON();
+          return rest;
+        })()
+      : null;
+
+      return res.status(200).json({
+        user: {
+          _id,
+          name: uName,
+          email,
+          subscription,
+          type,
+          avatar: avatar.url,
+          bio: uBio,
+        },
+        userCredentials,
+      });
+  } catch (error) {
+    console.error("Edit profile error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 const resetPassword = async (req, res) => {
   try {
     const { code, password } = req.body;
@@ -434,6 +498,7 @@ module.exports.authController = {
   logout,
   forgetPassword,
   changePassword,
+  editProfile,
   resetPassword,
   contactUs,
   onboarding,

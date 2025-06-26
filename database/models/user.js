@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema(
     name: String,
     email: String,
     password: String,
+    bio: String,
     resetCode: {
       type: String,
       default: null,
@@ -22,8 +23,12 @@ const userSchema = new mongoose.Schema(
       default: "app",
     },
     avatar: {
-      type: String,
-      default: null,
+      public_id: {
+        type: String,
+      },
+      url: {
+        type: String,
+      },
     },
     type: {
       type: String,

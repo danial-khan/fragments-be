@@ -1,6 +1,7 @@
 const express = require("express");
 const { authController } = require("../controllers/authController");
 const { authMiddleware } = require("../middlewares/auth");
+const { singleAvatar } = require("../middlewares/multer");
 const authRouter = express.Router();
 
 authRouter.post("/register", authController.register);
@@ -12,6 +13,12 @@ authRouter.post("/forgot-password", authController.forgetPassword);
 authRouter.post("/reset-password", authController.resetPassword);
 authRouter.post("/contact-us", authController.contactUs);
 authRouter.post('/change-password', authMiddleware, authController.changePassword);
+authRouter.put(
+  "/edit-profile",
+  authMiddleware,
+  singleAvatar,
+  authController.editProfile
+);
 authRouter.post("/onboarding", authMiddleware, authController.onboarding);
 authRouter.post("/credentials/:status", authMiddleware, authController.updateCredentialsStatus);
 

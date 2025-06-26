@@ -1,7 +1,9 @@
+const mongoose = require("mongoose");
 const FragmentModel = require("../database/models/fragment");
+const UserModel = require("../database/models/user");
+const UserCredentialsModel = require("../database/models/userCredentials");
 const CategoryModel = require("../database/models/category");
 const notificationController = require("./notificationController");
-const mongoose = require("mongoose");
 
 const populateAuthors = async (replies) => {
   if (!replies || !replies.length) return;
@@ -67,7 +69,7 @@ const fragmentController = {
   // Get a single fragment by ID with populated author and category
   async getFragment(req, res) {
     try {
-      const fragment = await FragmentModel.find({
+      const fragment = await FragmentModel.findOne({
         _id: req.params.id,
         isDeleted: false,
         status: "published",
@@ -137,6 +139,56 @@ const fragmentController = {
     } catch (err) {
       console.error("Get fragments error:", err);
       res.status(500).json({ error: err.message });
+    }
+  },
+
+  getPublicProfile: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, limit = 10 } = req.query;
+
+      const user = await UserModel.findOne({ _id: userId, isDeleted: false })
+        .select("name avatar bio type followers following createdAt")
+        .lean();
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const credentials = await UserCredentialsModel.findOne({
+        userId,
+        isDeleted: false,
+        status: "approved",
+      })
+        .select("bio credentials institution expertise type")
+        .lean();
+
+      const fragmentQuery = {
+        author: userId,
+        isDeleted: false,
+        status: "published",
+      };
+
+      const totalFragments = await FragmentModel.countDocuments(fragmentQuery);
+
+      const fragments = await FragmentModel.find(fragmentQuery)
+        .sort({ createdAt: -1 })
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .limit(parseInt(limit))
+        .populate("category", "name")
+        .lean();
+
+      return res.json({
+        user,
+        credentials,
+        fragments,
+        totalFragments,
+        page: parseInt(page),
+        pages: Math.ceil(totalFragments / parseInt(limit)),
+      });
+    } catch (error) {
+      console.error("Get profile error:", error);
+      return res.status(500).json({ error: "Server error" });
     }
   },
 
