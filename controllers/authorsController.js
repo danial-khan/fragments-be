@@ -41,7 +41,6 @@ const authorsController = {
             _id: 1,
             name: 1,
             email: 1,
-            bio: 1,
             avatar: 1,
             type: 1,
             createdAt: 1,

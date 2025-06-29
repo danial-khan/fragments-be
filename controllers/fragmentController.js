@@ -148,7 +148,7 @@ const fragmentController = {
       const { page = 1, limit = 10 } = req.query;
 
       const user = await UserModel.findOne({ _id: userId, isDeleted: false })
-        .select("name avatar bio type followers following createdAt")
+        .select("name avatar type followers following createdAt")
         .lean();
 
       if (!user) {

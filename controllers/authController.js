@@ -288,7 +288,6 @@ const editProfile = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found." });
 
     user.name = name;
-    if (bio !== undefined) user.bio = bio;
 
     if (req.file) {
       if (user.avatar?.public_id) {
@@ -309,12 +308,19 @@ const editProfile = async (req, res) => {
       type,
       avatar,
       _id,
-      bio: uBio,
     } = user.toJSON();
 
     const userCredentialsDoc = await UserCredentialsModel.findOne({
       userId: _id,
     });
+
+    if (userCredentialsDoc) {
+      if (bio !== undefined) {
+        userCredentialsDoc.bio = bio;
+        await userCredentialsDoc.save();
+      }
+    }
+
     const userCredentials = userCredentialsDoc
       ? (() => {
           const { file, ...rest } = userCredentialsDoc.toJSON();

@@ -4,7 +4,7 @@ const UserModel = require("../database/models/user");
 
 module.exports.adminMiddleware = async (req, res, next) => {
   try {
-    const token = req.cookies["session-token"];
+    const token = req.cookies["admin-token"];
 
     if (!token) {
       return res.status(401).json({ message: "Unauthorized" });

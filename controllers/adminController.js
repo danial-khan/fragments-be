@@ -41,7 +41,7 @@ const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("session-token", token, {
+    res.cookie("admin-token", token, {
       domain:
         process.env.NODE_ENV === "production"
           ? ".fragmenttrails.com"
