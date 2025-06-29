@@ -70,7 +70,7 @@ const callbackGoogle = async (req, res, next) => {
         res.cookie("session-token", token, {
           domain:
             process.env.NODE_ENV === "production"
-              ? ".mernsol.com"
+              ? ".fragmenttrails.com"
               : "localhost",
           sameSite: "None",
           httpOnly: true,
