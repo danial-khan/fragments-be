@@ -75,7 +75,7 @@ const fragmentController = {
         status: "published",
       })
         .populate("author", "name username email")
-        .populate("category", "name");
+        .populate("category", "name color");
       await populateAuthors(fragment.replies);
 
       if (!fragment) {
@@ -125,8 +125,8 @@ const fragmentController = {
         .sort(sortOptions)
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit))
-        .populate("author", "name")
-        .populate("category", "name");
+        .populate("author", "name username")
+        .populate("category", "name color");
 
       const total = await FragmentModel.countDocuments(query);
 
@@ -144,47 +144,71 @@ const fragmentController = {
 
   getPublicProfile: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const { page = 1, limit = 10 } = req.query;
+      const { username } = req.params;
+      const pageNum = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limNum = Math.max(1, parseInt(req.query.limit, 10) || 10);
 
-      const user = await UserModel.findOne({ _id: userId, isDeleted: false })
-        .select("name avatar type followers following createdAt")
+      const user = await UserModel.findOne({ username, isDeleted: false })
+        .select(
+          "_id, name username avatar cover type location socialLinks website followers following createdAt showStats"
+        )
         .lean();
-
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
       const credentials = await UserCredentialsModel.findOne({
-        userId,
+        userId: user._id,
         isDeleted: false,
         status: "approved",
       })
         .select("bio credentials institution expertise type")
         .lean();
 
-      const fragmentQuery = {
-        author: userId,
+      const fragFilter = {
+        author: user._id,
         isDeleted: false,
         status: "published",
       };
+      const totalFragments = await FragmentModel.countDocuments(fragFilter);
 
-      const totalFragments = await FragmentModel.countDocuments(fragmentQuery);
-
-      const fragments = await FragmentModel.find(fragmentQuery)
+      const fragments = await FragmentModel.find(fragFilter)
         .sort({ createdAt: -1 })
-        .skip((parseInt(page) - 1) * parseInt(limit))
-        .limit(parseInt(limit))
-        .populate("category", "name")
+        .skip((pageNum - 1) * limNum)
+        .limit(limNum)
+        .populate("category", "name color")
         .lean();
+
+      let stats = null;
+      if (user.showStats) {
+        const statsFrags = await FragmentModel.find(fragFilter)
+          .select("upvotes viewCount")
+          .lean();
+
+        const { totalUpvotes, totalViews } = statsFrags.reduce(
+          (acc, f) => {
+            acc.totalUpvotes += Array.isArray(f.upvotes) ? f.upvotes.length : 0;
+            acc.totalViews += typeof f.viewCount === "number" ? f.viewCount : 0;
+            return acc;
+          },
+          { totalUpvotes: 0, totalViews: 0 }
+        );
+
+        stats = {
+          totalUpvotes,
+          totalViews,
+          totalEarnings: totalViews * 0.0001,
+        };
+      }
 
       return res.json({
         user,
         credentials,
         fragments,
         totalFragments,
-        page: parseInt(page),
-        pages: Math.ceil(totalFragments / parseInt(limit)),
+        page: pageNum,
+        pages: Math.ceil(totalFragments / limNum),
+        ...(stats || {}),
       });
     } catch (error) {
       console.error("Get profile error:", error);
@@ -222,7 +246,7 @@ const fragmentController = {
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit))
         .populate("author", "username")
-        .populate("category", "name");
+        .populate("category", "name color");
 
       const total = await FragmentModel.countDocuments(query);
 
@@ -248,7 +272,7 @@ const fragmentController = {
         status: "published",
       })
         .populate("author", "username")
-        .populate("category", "name");
+        .populate("category", "name color");
 
       // 0.0001$ per view
       const stats = {

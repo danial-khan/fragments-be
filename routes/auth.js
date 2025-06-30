@@ -1,7 +1,7 @@
 const express = require("express");
 const { authController } = require("../controllers/authController");
 const { authMiddleware } = require("../middlewares/auth");
-const { singleAvatar } = require("../middlewares/multer");
+const { uploadProfileMedia } = require("../middlewares/multer");
 const authRouter = express.Router();
 
 authRouter.post("/register", authController.register);
@@ -16,7 +16,7 @@ authRouter.post('/change-password', authMiddleware, authController.changePasswor
 authRouter.put(
   "/edit-profile",
   authMiddleware,
-  singleAvatar,
+  uploadProfileMedia,
   authController.editProfile
 );
 authRouter.post("/onboarding", authMiddleware, authController.onboarding);

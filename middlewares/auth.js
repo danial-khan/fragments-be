@@ -14,7 +14,7 @@ module.exports.authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, config.JWT_SECRET);
     const user = await UserModel.findById(decoded._id, '-password -verificationCode -resetCode -remember -__v');
     if (!user || !user.active) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: "Unauthoriz  ed" });
     }
     req.user = user;
     

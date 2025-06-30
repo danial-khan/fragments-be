@@ -40,6 +40,7 @@ const authorsController = {
           $project: {
             _id: 1,
             name: 1,
+            username: 1,
             email: 1,
             avatar: 1,
             type: 1,

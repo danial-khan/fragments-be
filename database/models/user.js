@@ -1,9 +1,18 @@
 const mongoose = require("mongoose");
+
 const userSchema = new mongoose.Schema(
   {
     name: String,
     email: String,
     password: String,
+
+    username: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+
     resetCode: {
       type: String,
       default: null,
@@ -21,19 +30,23 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "app",
     },
+
     avatar: {
-      public_id: {
-        type: String,
-      },
-      url: {
-        type: String,
-      },
+      public_id: String,
+      url: String,
     },
+
+    cover: {
+      public_id: String,
+      url: String,
+    },
+
     type: {
       type: String,
       enum: ["student", "author", "admin", "moderator"],
       default: "student",
     },
+
     subscription: {
       id: String,
       plan: String,
@@ -42,13 +55,7 @@ const userSchema = new mongoose.Schema(
         default: null,
       },
     },
-    following: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        default: [],
-      },
-    ],
+
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -56,7 +63,41 @@ const userSchema = new mongoose.Schema(
         default: [],
       },
     ],
-    isDeleted: { type: Boolean, default: false },
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
+      },
+    ],
+
+    socialLinks: {
+      twitter: String,
+      github: String,
+      linkedin: String,
+      instagram: String,
+    },
+
+    location: {
+      country: String,
+      state: String,
+      city: String,
+    },
+
+    website: {
+      type: String,
+      trim: true,
+    },
+
+    showStats: {
+      type: Boolean,
+      default: false,
+    },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

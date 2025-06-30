@@ -278,48 +278,96 @@ const changePassword = async (req, res) => {
 const editProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { name, bio } = req.body;
+    const { name, username, bio, website, showStats, location, socialLinks } =
+      req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: "Name is required." });
+    if (!name || !username) {
+      return res
+        .status(400)
+        .json({ message: "Name and username are required." });
     }
 
     const user = await UserModel.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found." });
 
+    // ✅ Update basic fields
     user.name = name;
+    user.username = username;
+    user.website = website;
+    user.showStats = showStats;
 
-    if (req.file) {
+    // ✅ Parse and assign nested objects
+    if (location) {
+      const parsedLocation =
+        typeof location === "string" ? JSON.parse(location) : location;
+      user.location = {
+        country: parsedLocation.country || "",
+        state: parsedLocation.state || "",
+        city: parsedLocation.city || "",
+      };
+    }
+
+    if (socialLinks) {
+      const parsedLinks =
+        typeof socialLinks === "string" ? JSON.parse(socialLinks) : socialLinks;
+      user.socialLinks = {
+        twitter: parsedLinks.twitter || "",
+        github: parsedLinks.github || "",
+        linkedin: parsedLinks.linkedin || "",
+        instagram: parsedLinks.instagram || "",
+      };
+    }
+
+    // ✅ Avatar Upload
+    if (req.files?.avatar) {
+      const avatarFile = req.files.avatar[0];
       if (user.avatar?.public_id) {
         await deleteFromCloudinary(user.avatar.public_id);
       }
-      const uploaded = await uploadToCloudinary(req.file);
+      const uploaded = await uploadToCloudinary(avatarFile);
       user.avatar = {
         public_id: uploaded.public_id,
         url: uploaded.url,
       };
     }
 
-    await user.save();
-    const {
-      name: uName,
-      email,
-      subscription,
-      type,
-      avatar,
-      _id,
-    } = user.toJSON();
-
-    const userCredentialsDoc = await UserCredentialsModel.findOne({
-      userId: _id,
-    });
-
-    if (userCredentialsDoc) {
-      if (bio !== undefined) {
-        userCredentialsDoc.bio = bio;
-        await userCredentialsDoc.save();
+    // ✅ Cover Upload
+    if (req.files?.cover) {
+      const coverFile = req.files.cover[0];
+      if (user.cover?.public_id) {
+        await deleteFromCloudinary(user.cover.public_id);
       }
+      const uploadedCover = await uploadToCloudinary(coverFile);
+      user.cover = {
+        public_id: uploadedCover.public_id,
+        url: uploadedCover.url,
+      };
     }
+
+    await user.save();
+
+    // ✅ Handle bio from credentials model
+    const userCredentialsDoc = await UserCredentialsModel.findOne({ userId });
+    if (userCredentialsDoc && bio !== undefined) {
+      userCredentialsDoc.bio = bio;
+      await userCredentialsDoc.save();
+    }
+
+    // ✅ Prepare response
+    const {
+      _id,
+      name: uName,
+      username: uUsername,
+      email,
+      showStats: uShowStats,
+      type,
+      subscription,
+      avatar,
+      cover,
+      location: uLocation,
+      website: uWebsite,
+      socialLinks: uLinks,
+    } = user.toJSON();
 
     const userCredentials = userCredentialsDoc
       ? (() => {
@@ -328,23 +376,30 @@ const editProfile = async (req, res) => {
         })()
       : null;
 
-      return res.status(200).json({
-        user: {
-          _id,
-          name: uName,
-          email,
-          subscription,
-          type,
-          avatar: avatar.url,
-          bio: uBio,
-        },
-        userCredentials,
-      });
+    return res.status(200).json({
+      user: {
+        _id,
+        name: uName,
+        username: uUsername,
+        email,
+        type,
+        subscription,
+        showStats: uShowStats,
+        avatar,
+        cover,
+        location: uLocation,
+        website: uWebsite,
+        socialLinks: uLinks,
+        bio: userCredentials?.bio || null,
+      },
+      userCredentials,
+    });
   } catch (error) {
     console.error("Edit profile error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 const resetPassword = async (req, res) => {
   try {

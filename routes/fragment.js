@@ -8,7 +8,7 @@ const { authMiddleware } = require("../middlewares/auth");
 fragmentRouter.post("/", authMiddleware, fragmentController.createFragment);
 fragmentRouter.get("/", authMiddleware, fragmentController.getFragments);
 fragmentRouter.get(
-  "/profile/:userId",
+  "/profile/:username",
   authMiddleware,
   fragmentController.getPublicProfile
 );
