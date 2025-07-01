@@ -236,7 +236,7 @@ const getUsers = async (req, res) => {
     const users = await UserModel.find(
       {
         type: {
-          $nin: ["admin"],
+          $nin: ["admin", "moderator"],
         },
         isDeleted: false,
       },
@@ -295,9 +295,9 @@ const getAllFragmentsForAdmin = async (req, res) => {
     }
 
     const match = { isDeleted: false };
-    if (fragmentId) match._id = mongoose.Types.ObjectId(fragmentId);
-    if (category) match.category = mongoose.Types.ObjectId(category);
-    if (author) match.author = mongoose.Types.ObjectId(author);
+    if (fragmentId) match._id = new mongoose.Types.ObjectId(fragmentId);
+    if (category) match.category = new mongoose.Types.ObjectId(category);
+    if (author) match.author = new mongoose.Types.ObjectId(author);
     if (status === "published" || status === "blocked") {
       match.status = status;
     } else {
@@ -598,7 +598,6 @@ const updateFragmentStatus = async (req, res) => {
     const fragment = await FragmentModel.findOne({
       _id: fragmentId,
       isDeleted: false,
-      type: { $in: ["admin", "moderator"] },
     });
     if (!fragment) {
       return res.status(401).json({ message: "Fragment not found." });
@@ -718,7 +717,7 @@ const softDeleteFragment = async (req, res) => {
 
     await FragmentModel.updateOne(
       { _id: fragmentId },
-      { $set: { isDeleted: true } }
+      { $set: { isDeleted: true, status: "blocked" } }
     );
 
     return res
