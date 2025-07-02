@@ -5,6 +5,34 @@ const UserCredentialsModel = require("../database/models/userCredentials");
 const CategoryModel = require("../database/models/category");
 const notificationController = require("./notificationController");
 
+async function pruneAndPopulate(replies = []) {
+  const valid = replies.filter((r) => r.status === "published" && r.isDeleted === false);
+  if (valid.length === 0) return [];
+
+  await FragmentModel.populate(valid, {
+    path: "author",
+    select: "name username avatar",
+  });
+
+  return Promise.all(
+    valid.map(async (r) => {
+      const children = Array.isArray(r.replies) ? r.replies : [];
+      const prunedKids = await pruneAndPopulate(children);
+
+      return {
+        _id: r._id,
+        content: r.content,
+        author: r.author,
+        upvotes: r.upvotes,
+        downvotes: r.downvotes,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        replies: prunedKids,
+      };
+    })
+  );
+}
+
 const fragmentController = {
   // Create a new fragment
   createFragment: async (req, res) => {
@@ -53,98 +81,27 @@ const fragmentController = {
 
   getFragment: async (req, res) => {
     try {
-      // 1) Load the fragment + top‑level author & category as a plain object
-      const fragment = await FragmentModel.findOne({
+      let fragment = await FragmentModel.findOne({
         _id: req.params.id,
         isDeleted: false,
         status: "published",
       })
         .populate("author", "name username email avatar")
-        .populate("category", "name color")
-        .lean();
+        .populate("category", "name color");
 
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
       }
 
-      // 2) Prepare storage for flat array + author collection
-      const allReplies = [];
-      const allAuthorIds = new Set();
+      fragment = fragment.toObject();
+      fragment.replies = await pruneAndPopulate(fragment.replies);
 
-      // 3) Recursive collector (no max‐depth cutoff)
-      function collectReplies(replies, parentReplyId = null, depth = 1) {
-        for (const r of replies || []) {
-          if (r.status === "published" && !r.isDeleted) {
-            // save for flat list
-            allReplies.push({
-              _id: r._id,
-              content: r.content,
-              authorId: String(r.author),
-              createdAt: r.createdAt,
-              updatedAt: r.updatedAt,
-              parentReplyId, // null on top‐level
-              depth, // 1 = top, 2 = reply-to‐reply, etc.
-            });
-            allAuthorIds.add(String(r.author));
-
-            // recurse into children
-            collectReplies(r.replies, r._id, depth + 1);
-          }
-        }
-      }
-
-      // build flat list of everything
-      collectReplies(fragment.replies);
-
-      // 4) Bulk‐fetch all authors we encountered
-      const authorList = await UserModel.find({
-        _id: { $in: Array.from(allAuthorIds) },
-      })
-        .select("_id name username avatar")
-        .lean();
-
-      const authorMap = Object.fromEntries(
-        authorList.map((u) => [String(u._id), u])
-      );
-
-      // 5) Build a nested tree out of the flat list
-      function makeTree(list) {
-        const map = {},
-          roots = [];
-        // first, clone entries with author object but no children
-        list.forEach((item) => {
-          map[item._id] = {
-            ...item,
-            author: authorMap[item.authorId] || {
-              _id: item.authorId,
-              name: null,
-            },
-            replies: [],
-          };
-        });
-        // then, link children into their parent’s .replies
-        list.forEach((item) => {
-          if (item.parentReplyId) {
-            map[item.parentReplyId].replies.push(map[item._id]);
-          } else {
-            roots.push(map[item._id]);
-          }
-        });
-        return roots;
-      }
-
-      const nestedReplies = makeTree(allReplies);
-
-      fragment.replies = nestedReplies;
       await FragmentModel.updateOne(
         { _id: fragment._id },
         { $inc: { viewCount: 1 } }
       );
 
-      res.json({
-        ...fragment,
-        replies: nestedReplies,
-      });
+      res.status(200).json(fragment);
     } catch (err) {
       console.error("getFragment error:", err);
       res.status(500).json({ error: err.message });

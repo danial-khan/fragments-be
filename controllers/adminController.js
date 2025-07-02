@@ -421,6 +421,8 @@ const getAllCommentsForAdmin = async (req, res) => {
           categoryName: fragment.category?.name || "Uncategorized",
           parentReplyId,
           depth: currentDepth,
+          upvotes: reply.upvotes || [],
+          downvotes: reply.downvotes || [],
         });
 
         if (reply.replies && reply.replies.length > 0) {
