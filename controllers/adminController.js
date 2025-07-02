@@ -6,6 +6,13 @@ const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
 const { mongoose } = require("mongoose");
 
+const slugify = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -84,9 +91,18 @@ const register = async (req, res) => {
       .update(password)
       .digest("hex");
 
+    const baseUsername = slugify(name);
+    let username = baseUsername;
+    let counter = 1;
+
+    while (await UserModel.findOne({ username })) {
+      username = `${baseUsername}-${counter++}`;
+    }
+
     await UserModel.create({
       name,
       email,
+      username,
       password: hashedPassword,
       type: "moderator",
       active: true,
@@ -629,7 +645,7 @@ const softDeleteUser = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    await UserModel.updateOne({ _id: userId }, { $set: { isDeleted: true } });
+    await UserModel.updateOne({ _id: userId }, { $set: { isDeleted: true, active: false } });
 
     return res
       .status(200)
@@ -658,7 +674,7 @@ const softDeleteAuthor = async (req, res) => {
 
     await UserCredentialsModel.updateOne(
       { _id: authorId },
-      { $set: { isDeleted: true } }
+      { $set: { isDeleted: true, status: "rejected" } }
     );
 
     return res
@@ -670,7 +686,6 @@ const softDeleteAuthor = async (req, res) => {
       .json({ success: false, message: "Something went wrong" });
   }
 };
-
 
 const softDeleteStudent = async (req, res) => {
   try {
@@ -688,7 +703,7 @@ const softDeleteStudent = async (req, res) => {
 
     await UserCredentialsModel.updateOne(
       { _id: studentId },
-      { $set: { isDeleted: true } }
+      { $set: { isDeleted: true, status: "rejected" } }
     );
 
     return res
@@ -751,6 +766,7 @@ const softDeleteReply = async (req, res) => {
       return replies.map((reply) => {
         if (reply._id.toString() === replyId.toString()) {
           reply.isDeleted = true;
+          reply.status = "blocked";
           found = true;
         }
         if (reply.replies && reply.replies.length) {
@@ -779,8 +795,6 @@ const softDeleteReply = async (req, res) => {
       .json({ success: false, message: "Something went wrong" });
   }
 };
-
-
 
 module.exports.adminController = {
   login,

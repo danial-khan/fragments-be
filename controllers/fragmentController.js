@@ -5,21 +5,6 @@ const UserCredentialsModel = require("../database/models/userCredentials");
 const CategoryModel = require("../database/models/category");
 const notificationController = require("./notificationController");
 
-const populateAuthors = async (replies) => {
-  if (!replies || !replies.length) return;
-
-  await FragmentModel.populate(replies, {
-    path: "author",
-    select: "name",
-  });
-
-  for (const reply of replies) {
-    if (reply.replies && reply.replies.length) {
-      await populateAuthors(reply.replies);
-    }
-  }
-};
-
 const fragmentController = {
   // Create a new fragment
   createFragment: async (req, res) => {
@@ -66,28 +51,102 @@ const fragmentController = {
     }
   },
 
-  // Get a single fragment by ID with populated author and category
-  async getFragment(req, res) {
+  getFragment: async (req, res) => {
     try {
+      // 1) Load the fragment + top‑level author & category as a plain object
       const fragment = await FragmentModel.findOne({
         _id: req.params.id,
         isDeleted: false,
         status: "published",
       })
-        .populate("author", "name username email")
-        .populate("category", "name color");
-      await populateAuthors(fragment.replies);
+        .populate("author", "name username email avatar")
+        .populate("category", "name color")
+        .lean();
 
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
       }
 
-      fragment.viewCount += 1;
-      await fragment.save();
+      // 2) Prepare storage for flat array + author collection
+      const allReplies = [];
+      const allAuthorIds = new Set();
 
-      res.status(200).json(fragment);
+      // 3) Recursive collector (no max‐depth cutoff)
+      function collectReplies(replies, parentReplyId = null, depth = 1) {
+        for (const r of replies || []) {
+          if (r.status === "published" && !r.isDeleted) {
+            // save for flat list
+            allReplies.push({
+              _id: r._id,
+              content: r.content,
+              authorId: String(r.author),
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
+              parentReplyId, // null on top‐level
+              depth, // 1 = top, 2 = reply-to‐reply, etc.
+            });
+            allAuthorIds.add(String(r.author));
+
+            // recurse into children
+            collectReplies(r.replies, r._id, depth + 1);
+          }
+        }
+      }
+
+      // build flat list of everything
+      collectReplies(fragment.replies);
+
+      // 4) Bulk‐fetch all authors we encountered
+      const authorList = await UserModel.find({
+        _id: { $in: Array.from(allAuthorIds) },
+      })
+        .select("_id name username avatar")
+        .lean();
+
+      const authorMap = Object.fromEntries(
+        authorList.map((u) => [String(u._id), u])
+      );
+
+      // 5) Build a nested tree out of the flat list
+      function makeTree(list) {
+        const map = {},
+          roots = [];
+        // first, clone entries with author object but no children
+        list.forEach((item) => {
+          map[item._id] = {
+            ...item,
+            author: authorMap[item.authorId] || {
+              _id: item.authorId,
+              name: null,
+            },
+            replies: [],
+          };
+        });
+        // then, link children into their parent’s .replies
+        list.forEach((item) => {
+          if (item.parentReplyId) {
+            map[item.parentReplyId].replies.push(map[item._id]);
+          } else {
+            roots.push(map[item._id]);
+          }
+        });
+        return roots;
+      }
+
+      const nestedReplies = makeTree(allReplies);
+
+      fragment.replies = nestedReplies;
+      await FragmentModel.updateOne(
+        { _id: fragment._id },
+        { $inc: { viewCount: 1 } }
+      );
+
+      res.json({
+        ...fragment,
+        replies: nestedReplies,
+      });
     } catch (err) {
-      console.error("Get fragment error:", err);
+      console.error("getFragment error:", err);
       res.status(500).json({ error: err.message });
     }
   },
@@ -245,7 +304,7 @@ const fragmentController = {
         .sort(sortOptions)
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit))
-        .populate("author", "username")
+        .populate("author", "name username")
         .populate("category", "name color");
 
       const total = await FragmentModel.countDocuments(query);
@@ -271,7 +330,7 @@ const fragmentController = {
         isDeleted: false,
         status: "published",
       })
-        .populate("author", "username")
+        .populate("author", "name username")
         .populate("category", "name color");
 
       // 0.0001$ per view
@@ -390,6 +449,7 @@ const fragmentController = {
       }
 
       fragment.isDeleted = true;
+      fragment.status = "blocked";
       await fragment.save();
 
       res.status(200).json({ message: "Fragment deleted successfully" });
@@ -444,6 +504,7 @@ const fragmentController = {
           downvotes: [],
           replies: [],
           isDeleted: false,
+          status: "published",
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -490,69 +551,63 @@ const fragmentController = {
       res.status(500).json({ error: err.message });
     }
   },
+
   deleteReply: async (req, res) => {
     try {
       const { fragmentId, replyId } = req.params;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.find({
-        _id: fragmentId,
-        isDeleted: false,
-        status: "published",
-      });
-      if (!fragment) {
+      const fragment = await FragmentModel.findById(fragmentId);
+      if (!fragment || fragment.isDeleted || fragment.status !== "published") {
         return res.status(404).json({ error: "Fragment not found" });
       }
 
-      let deleted = false;
+      let unauthorized = false;
+      let found = false;
 
-      // Recursive function to find and delete reply
-      const deleteNestedReply = (replies) => {
-        for (let i = 0; i < replies.length; i++) {
-          const reply = replies[i];
-
-          // Check if current reply matches the ID
-          if (reply._id.toString() === replyId.toString()) {
-            // Verify the user is the author or has admin rights
+      const markDeleted = (replies) => {
+        for (const r of replies) {
+          if (r._id.toString() === replyId) {
             if (
-              reply.author.toString() !== userId.toString() &&
+              r.author.toString() !== userId.toString() &&
               !req.user.isAdmin
             ) {
-              return "unauthorized";
+              unauthorized = true;
+              return;
             }
-
-            // Permanently delete the reply by removing it from the array
-            replies.splice(i, 1);
-            return "deleted";
+            const recurse = (node) => {
+              node.isDeleted = true;
+              node.status = "blocked";
+              for (const child of node.replies) {
+                recurse(child);
+              }
+            };
+            recurse(r);
+            found = true;
+            return;
           }
-
-          // Check nested replies
-          if (reply.replies?.length > 0) {
-            const result = deleteNestedReply(reply.replies);
-            if (result === "deleted" || result === "unauthorized") {
-              return result;
-            }
+          if (r.replies.length) {
+            markDeleted(r.replies);
+            if (found || unauthorized) return;
           }
         }
-        return false;
       };
 
-      const result = deleteNestedReply(fragment.replies);
+      markDeleted(fragment.replies);
 
-      if (result === "unauthorized") {
+      if (unauthorized) {
         return res
           .status(403)
           .json({ error: "Unauthorized to delete this reply" });
       }
-
-      if (!result) {
+      if (!found) {
         return res.status(404).json({ error: "Reply not found" });
       }
 
       fragment.markModified("replies");
       await fragment.save();
 
-      res.status(200).json({ message: "Reply deleted successfully" });
+      res.status(200).json({ message: "Reply and its sub‑replies deleted" });
     } catch (err) {
       console.error("Delete reply error:", err);
       res.status(500).json({ error: err.message });

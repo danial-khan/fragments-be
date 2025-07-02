@@ -8,8 +8,8 @@ const notificationController = {
       const notifications = await Notification.find({
         recipient: req.user._id,
         isRead: false
-      }).populate('recipient', 'name')
-      .populate('triggerUser', 'name')
+      }).populate('recipient', 'name username avatar')
+      .populate('triggerUser', 'name username avatar')
       .sort('-createdAt').limit(15).lean();
       res.json(notifications);
     } catch (error) {

@@ -8,6 +8,13 @@ const jwt = require("jsonwebtoken");
 const UserCredentialsModel = require("../database/models/userCredentials");
 const {uploadToCloudinary, deleteFromCloudinary} = require("../utils/cloudinary");
 
+const slugify = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -30,9 +37,18 @@ const register = async (req, res) => {
       100000 + Math.random() * 900000
     ).toString();
 
-    const user = await UserModel.create({
+    const baseUsername = slugify(name);
+    let username = baseUsername;
+    let counter = 1;
+
+    while (await UserModel.findOne({ username })) {
+      username = `${baseUsername}-${counter++}`;
+    }
+
+    await UserModel.create({
       name,
-      email,
+      email,  
+      username,
       password: hashedPassword,
       verificationCode,
       type: "student",
