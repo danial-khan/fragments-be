@@ -4,10 +4,14 @@ const UserModel = require("../database/models/user");
 const UserCredentialsModel = require("../database/models/userCredentials");
 const CategoryModel = require("../database/models/category");
 const notificationController = require("./notificationController");
+const { analyzeContentWithAI } = require("../utils/aiReview");
 
 async function pruneAndPopulate(replies = []) {
-  const valid = replies.filter((r) => r.status === "published" && r.isDeleted === false);
+  const valid = replies.filter(
+    (r) => r.status === "published" && r.isDeleted === false
+  );
   if (valid.length === 0) return [];
+  8;
 
   await FragmentModel.populate(valid, {
     path: "author",
@@ -46,9 +50,25 @@ const fragmentController = {
       } = req.body;
       const author = req.user._id;
 
+      const textToModerate = `${title}\n${description}\n${content}`;
+
       const categoryExists = await CategoryModel.findById(category);
       if (!categoryExists) {
         return res.status(400).json({ error: "Invalid category" });
+      }
+
+      const {
+        status: aiReviewStatus,
+        feedback: aiReviewFeedback,
+        summary: aiReviewSummary,
+      } = await analyzeContentWithAI(textToModerate, "fragments");
+
+      if (aiReviewStatus === "rejected") {
+        return res.status(400).json({
+          error:
+            "Your fragment violates our community guidelines and was rejected.",
+          feedback: moderationResult.feedback,
+        });
       }
 
       const newFragment = new FragmentModel({
@@ -59,6 +79,9 @@ const fragmentController = {
         author,
         status,
         subscribers: [author],
+        aiReviewStatus,
+        aiReviewFeedback,
+        aiReviewSummary,
       });
 
       const savedFragment = await newFragment.save();
@@ -329,10 +352,9 @@ const fragmentController = {
       const { title, category, description, content, status } = req.body;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.find({
+      const fragment = await FragmentModel.findOne({
         _id: id,
         isDeleted: false,
-        status: "published",
       });
 
       if (!fragment) {
@@ -340,9 +362,9 @@ const fragmentController = {
       }
 
       if (fragment.author.toString() !== userId.toString()) {
-        return res
-          .status(403)
-          .json({ error: "Not authorized to update this fragment" });
+        return res.status(403).json({
+          error: "Not authorized to update this fragment",
+        });
       }
 
       if (category) {
@@ -352,7 +374,30 @@ const fragmentController = {
         }
       }
 
+      const finalTitle = title || fragment.title || "";
+      const finalDescription = description || fragment.description || "";
+      const finalContent = content || fragment.content || "";
+
+      const textToModerate = [finalTitle, finalDescription, finalContent]
+        .filter(Boolean)
+        .join("\n");
+
+      const {
+        status: aiReviewStatus,
+        feedback: aiReviewFeedback,
+        summary: aiReviewSummary,
+      } = await analyzeContentWithAI(textToModerate, "fragments");
+
+      if (aiReviewStatus === "rejected") {
+        return res.status(400).json({
+          error:
+            "Your updated fragment violates our community guidelines and was rejected.",
+          feedback: aiReviewFeedback,
+        });
+      }
+
       const wasPublished = fragment.status === "published";
+
       const updatedFragment = await FragmentModel.findByIdAndUpdate(
         id,
         {
@@ -361,6 +406,9 @@ const fragmentController = {
           description: description || fragment.description,
           content: content || fragment.content,
           status: status || fragment.status,
+          aiReviewStatus,
+          aiReviewFeedback,
+          aiReviewSummary,
           updatedAt: new Date(),
         },
         { new: true }
@@ -372,16 +420,15 @@ const fragmentController = {
         await notificationController.triggerFragmentUpdatedNotification(id);
       }
 
-      res.status(200).json({
+      return res.status(200).json({
         message: "Fragment updated successfully",
         fragment: updatedFragment,
       });
     } catch (err) {
       console.error("Update fragment error:", err);
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
   },
-
   // Delete a fragment (soft delete)
   deleteFragment: async (req, res) => {
     try {
@@ -426,6 +473,15 @@ const fragmentController = {
         return res.status(400).json({ error: "Content is required" });
       }
 
+      const moderationResult = await analyzeContentWithAI(content, "reply");
+      if (moderationResult.status === "rejected") {
+        return res.status(400).json({
+          error:
+            "Your reply violates our community standards and has been rejected.",
+          feedback: moderationResult.feedback,
+        });
+      }
+
       const fragment = await FragmentModel.findById(id);
       if (!fragment.subscribers.includes(author)) {
         fragment.subscribers.push(author);
@@ -437,10 +493,21 @@ const fragmentController = {
       }
 
       if (isEdit) {
+        const moderationResult = await analyzeContentWithAI(content, "reply");
+        if (moderationResult.status === "rejected") {
+          return res.status(400).json({
+            error:
+              "Your edited reply did not meet our content guidelines and was not saved.",
+            feedback: moderationResult.feedback,
+          });
+        }
         const updateReplies = (replies) => {
           for (let reply of replies) {
             if (reply._id.toString() === parentReplyId) {
               reply.content = content;
+              reply.aiReviewStatus = moderationResult.status;
+              reply.aiReviewFeedback = moderationResult.feedback;
+              reply.aiReviewSummary = moderationResult.summary;
               reply.updatedAt = new Date();
               updated = true;
             } else if (reply.replies?.length) {
@@ -461,6 +528,9 @@ const fragmentController = {
           downvotes: [],
           replies: [],
           isDeleted: false,
+          aiReviewStatus: moderationResult.status,
+          aiReviewFeedback: moderationResult.feedback,
+          aiReviewSummary: moderationResult.summary,
           status: "published",
           createdAt: new Date(),
           updatedAt: new Date(),
