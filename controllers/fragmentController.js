@@ -49,56 +49,57 @@ const fragmentController = {
         status = "draft",
       } = req.body;
       const author = req.user._id;
-
+  
       const textToModerate = `${title}\n${description}\n${content}`;
-
+  
       const categoryExists = await CategoryModel.findById(category);
       if (!categoryExists) {
         return res.status(400).json({ error: "Invalid category" });
       }
-
+  
       const {
         status: aiReviewStatus,
         feedback: aiReviewFeedback,
         summary: aiReviewSummary,
       } = await analyzeContentWithAI(textToModerate, "fragments");
-
+  
+      let finalStatus = status;
       if (aiReviewStatus === "rejected") {
-        return res.status(400).json({
-          error:
-            "Your fragment violates our community guidelines and was rejected.",
-          feedback: moderationResult.feedback,
-        });
+        finalStatus = "blocked";
       }
-
+  
       const newFragment = new FragmentModel({
         title,
         category,
         description,
         content,
         author,
-        status,
+        status: finalStatus,
         subscribers: [author],
         aiReviewStatus,
         aiReviewFeedback,
         aiReviewSummary,
       });
-
+  
       const savedFragment = await newFragment.save();
-
-      if (status === "published") {
-        await notificationController.triggerNewFragmentNotification(
-          savedFragment._id
-        );
+  
+      // Notify only if published
+      if (finalStatus === "published") {
+        await notificationController.triggerNewFragmentNotification(savedFragment._id);
       }
-
-      res.status(201).json({
-        message: "Fragment created successfully",
+  
+      return res.status(201).json({
+        message:
+          finalStatus === "blocked"
+            ? "Fragment saved but blocked due to content policy violation."
+            : "Fragment created successfully.",
         fragment: savedFragment,
+        aiBlocked: finalStatus === "blocked",
+        feedback: aiReviewSummary,
       });
     } catch (err) {
       console.error("Create fragment error:", err);
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
   },
 
@@ -267,7 +268,7 @@ const fragmentController = {
         sortOrder = "desc",
       } = req.query;
 
-      const query = { isDeleted: false, status: "published", author: userId };
+      const query = { isDeleted: false, author: userId };
 
       if (category) {
         query.category = category;
@@ -392,7 +393,7 @@ const fragmentController = {
         return res.status(400).json({
           error:
             "Your updated fragment violates our community guidelines and was rejected.",
-          feedback: aiReviewFeedback,
+          feedback: aiReviewSummary,
         });
       }
 
@@ -478,7 +479,7 @@ const fragmentController = {
         return res.status(400).json({
           error:
             "Your reply violates our community standards and has been rejected.",
-          feedback: moderationResult.feedback,
+          feedback: moderationResult.summary,
         });
       }
 
@@ -498,7 +499,7 @@ const fragmentController = {
           return res.status(400).json({
             error:
               "Your edited reply did not meet our content guidelines and was not saved.",
-            feedback: moderationResult.feedback,
+            feedback: moderationResult.summary,
           });
         }
         const updateReplies = (replies) => {
