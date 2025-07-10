@@ -450,16 +450,14 @@ const fragmentController = {
       const { id } = req.params;
       const userId = req.user._id;
 
-      const fragment = await FragmentModel.find({
+      const fragment = await FragmentModel.findOne({
         _id: id,
         isDeleted: false,
-        status: "published",
       });
 
       if (!fragment) {
         return res.status(404).json({ error: "Fragment not found" });
       }
-
       // Check if the user is the author
       if (fragment.author.toString() !== userId.toString()) {
         return res
