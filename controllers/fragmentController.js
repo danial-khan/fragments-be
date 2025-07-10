@@ -8,7 +8,7 @@ const { analyzeContentWithAI } = require("../utils/aiReview");
 
 async function pruneAndPopulate(replies = []) {
   const valid = replies.filter(
-    (r) => r.status === "published" && r.isDeleted === false
+    (r) => r.isDeleted === false
   );
   if (valid.length === 0) return [];
   8;
@@ -29,6 +29,9 @@ async function pruneAndPopulate(replies = []) {
         author: r.author,
         upvotes: r.upvotes,
         downvotes: r.downvotes,
+        aiReviewStatus: r.aiReviewStatus,
+        aiReviewFeedback: r.aiReviewFeedback,
+        status: r.status,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
         replies: prunedKids,
@@ -49,25 +52,25 @@ const fragmentController = {
         status = "draft",
       } = req.body;
       const author = req.user._id;
-  
+
       const textToModerate = `${title}\n${description}\n${content}`;
-  
+
       const categoryExists = await CategoryModel.findById(category);
       if (!categoryExists) {
         return res.status(400).json({ error: "Invalid category" });
       }
-  
+
       const {
         status: aiReviewStatus,
         feedback: aiReviewFeedback,
         summary: aiReviewSummary,
       } = await analyzeContentWithAI(textToModerate, "fragments");
-  
+
       let finalStatus = status;
       if (aiReviewStatus === "rejected") {
         finalStatus = "blocked";
       }
-  
+
       const newFragment = new FragmentModel({
         title,
         category,
@@ -80,14 +83,16 @@ const fragmentController = {
         aiReviewFeedback,
         aiReviewSummary,
       });
-  
+
       const savedFragment = await newFragment.save();
-  
+
       // Notify only if published
       if (finalStatus === "published") {
-        await notificationController.triggerNewFragmentNotification(savedFragment._id);
+        await notificationController.triggerNewFragmentNotification(
+          savedFragment._id
+        );
       }
-  
+
       return res.status(201).json({
         message:
           finalStatus === "blocked"
@@ -253,6 +258,7 @@ const fragmentController = {
     } catch (error) {
       console.error("Get profile error:", error);
       return res.status(500).json({ error: "Server error" });
+      return res.status(500).json({ error: "Server error" });
     }
   },
 
@@ -389,12 +395,14 @@ const fragmentController = {
         summary: aiReviewSummary,
       } = await analyzeContentWithAI(textToModerate, "fragments");
 
+      let finalStatus;
+
       if (aiReviewStatus === "rejected") {
-        return res.status(400).json({
-          error:
-            "Your updated fragment violates our community guidelines and was rejected.",
-          feedback: aiReviewSummary,
-        });
+        finalStatus = "blocked";
+      } else if (aiReviewStatus === "approved") {
+        finalStatus = "published";
+      } else {
+        finalStatus = fragment.status;
       }
 
       const wasPublished = fragment.status === "published";
@@ -406,7 +414,7 @@ const fragmentController = {
           category: category || fragment.category,
           description: description || fragment.description,
           content: content || fragment.content,
-          status: status || fragment.status,
+          status: finalStatus,
           aiReviewStatus,
           aiReviewFeedback,
           aiReviewSummary,
@@ -422,14 +430,20 @@ const fragmentController = {
       }
 
       return res.status(200).json({
-        message: "Fragment updated successfully",
+        message:
+          finalStatus === "blocked"
+            ? "Fragment saved but blocked due to content policy violation."
+            : "Fragment updated successfully.",
         fragment: updatedFragment,
+        aiBlocked: finalStatus === "blocked",
+        feedback: aiReviewSummary,
       });
     } catch (err) {
       console.error("Update fragment error:", err);
       return res.status(500).json({ error: err.message });
     }
   },
+
   // Delete a fragment (soft delete)
   deleteFragment: async (req, res) => {
     try {
@@ -475,33 +489,30 @@ const fragmentController = {
       }
 
       const moderationResult = await analyzeContentWithAI(content, "reply");
+      let finalStatus;
+
       if (moderationResult.status === "rejected") {
-        return res.status(400).json({
-          error:
-            "Your reply violates our community standards and has been rejected.",
-          feedback: moderationResult.summary,
-        });
+        finalStatus = "blocked";
+      } else if (moderationResult.status === "approved") {
+        finalStatus = "published";
+      } else {
+        finalStatus = fragment.status;
       }
 
       const fragment = await FragmentModel.findById(id);
+      if (!fragment) {
+        return res.status(404).json({ error: "Fragment not found" });
+      }
+
       if (!fragment.subscribers.includes(author)) {
         fragment.subscribers.push(author);
         fragment.markModified("subscribers");
         await fragment.save();
       }
-      if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
-      }
 
       if (isEdit) {
-        const moderationResult = await analyzeContentWithAI(content, "reply");
-        if (moderationResult.status === "rejected") {
-          return res.status(400).json({
-            error:
-              "Your edited reply did not meet our content guidelines and was not saved.",
-            feedback: moderationResult.summary,
-          });
-        }
+        let updatedReply = null;
+
         const updateReplies = (replies) => {
           for (let reply of replies) {
             if (reply._id.toString() === parentReplyId) {
@@ -509,74 +520,97 @@ const fragmentController = {
               reply.aiReviewStatus = moderationResult.status;
               reply.aiReviewFeedback = moderationResult.feedback;
               reply.aiReviewSummary = moderationResult.summary;
+              reply.status = finalStatus;
               reply.updatedAt = new Date();
-              updated = true;
-            } else if (reply.replies?.length) {
-              updateReplies(reply.replies);
+              updatedReply = reply;
+              return true;
+            }
+            if (reply.replies?.length) {
+              if (updateReplies(reply.replies)) return true;
             }
           }
+          return false;
         };
 
-        updateReplies(fragment.replies);
-        fragment.markModified("replies");
-        await fragment.save();
-      } else {
-        const newReply = {
-          _id: new mongoose.Types.ObjectId(),
-          content,
-          author,
-          upvotes: [],
-          downvotes: [],
-          replies: [],
-          isDeleted: false,
-          aiReviewStatus: moderationResult.status,
-          aiReviewFeedback: moderationResult.feedback,
-          aiReviewSummary: moderationResult.summary,
-          status: "published",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        let parentReplyAuthorId = null;
-
-        if (parentReplyId) {
-          const addReplyToParent = (replies, parentId) => {
-            for (let reply of replies) {
-              if (reply._id.toString() === parentId.toString()) {
-                reply.replies.push(newReply);
-                parentReplyAuthorId = reply.author;
-                return true;
-              }
-              if (reply.replies && reply.replies.length > 0) {
-                if (addReplyToParent(reply.replies, parentId)) {
-                  return true;
-                }
-              }
-            }
-            return false;
-          };
-
-          if (!addReplyToParent(fragment.replies, parentReplyId)) {
-            return res.status(404).json({ error: "Parent reply not found" });
-          }
-        } else {
-          fragment.replies.push(newReply);
+        const found = updateReplies(fragment.replies);
+        if (!found) {
+          return res.status(404).json({ error: "Reply to edit not found" });
         }
 
         fragment.markModified("replies");
         await fragment.save();
 
-        await notificationController.triggerReplyNotification(
-          newReply,
-          fragment._id,
-          parentReplyAuthorId
-        );
+        return res.status(200).json({
+          message:
+            finalStatus === "blocked"
+              ? "Reply saved but blocked due to content policy violation."
+              : "Reply updated successfully.",
+          reply: updatedReply,
+          aiBlocked: finalStatus === "blocked",
+        });
       }
 
-      res.status(201).json({ message: "Reply added successfully" });
+      // Create new reply
+      const newReply = {
+        _id: new mongoose.Types.ObjectId(),
+        content,
+        author,
+        upvotes: [],
+        downvotes: [],
+        replies: [],
+        isDeleted: false,
+        aiReviewStatus: moderationResult.status,
+        aiReviewFeedback: moderationResult.feedback,
+        aiReviewSummary: moderationResult.summary,
+        status: finalStatus,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let parentReplyAuthorId = null;
+
+      if (parentReplyId) {
+        const addReplyToParent = (replies, parentId) => {
+          for (let reply of replies) {
+            if (reply._id.toString() === parentId.toString()) {
+              reply.replies.push(newReply);
+              parentReplyAuthorId = reply.author;
+              return true;
+            }
+            if (reply.replies?.length > 0) {
+              if (addReplyToParent(reply.replies, parentId)) return true;
+            }
+          }
+          return false;
+        };
+
+        if (!addReplyToParent(fragment.replies, parentReplyId)) {
+          return res.status(404).json({ error: "Parent reply not found" });
+        }
+      } else {
+        fragment.replies.push(newReply);
+      }
+
+      fragment.markModified("replies");
+      await fragment.save();
+
+      await notificationController.triggerReplyNotification(
+        newReply,
+        fragment._id,
+        parentReplyAuthorId
+      );
+
+      return res.status(201).json({
+        message:
+          finalStatus === "blocked"
+            ? "Reply saved but blocked due to content policy violation."
+            : "Reply added successfully.",
+        reply: newReply,
+        aiBlocked: finalStatus === "blocked",
+      });
     } catch (err) {
       console.error("Add reply error:", err);
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
   },
 

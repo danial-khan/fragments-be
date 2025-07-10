@@ -16,7 +16,7 @@ const replySchema = new Schema(
     isDeleted: { type: Boolean, default: false },
     status: {
       type: String,
-      enum: ["published", "blocked"],
+      enum: ["pending", "published", "blocked"],
       default: "published",
     },
     aiReviewStatus: { type: String, enum: AI_STATUSES, default: "pending" },
