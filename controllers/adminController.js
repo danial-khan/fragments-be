@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
 const { mongoose } = require("mongoose");
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 const slugify = (str) =>
   str
@@ -801,6 +802,147 @@ const softDeleteReply = async (req, res) => {
   }
 };
 
+const getSubscriptionStats = async (req, res) => {
+  try {
+    const subscriptions = await stripe.subscriptions.list({
+      limit: 100,
+      expand: ['data.customer', 'data.items.data.price']
+    });
+
+    const totalSubscribers = subscriptions.data.length;
+    const activeSubscriptions = subscriptions.data.filter(sub => sub.status === 'active').length;
+    const canceledSubscriptions = subscriptions.data.filter(sub => sub.status === 'canceled').length;
+    
+    let totalMonthlyAmount = 0;
+    let totalQuarterlyAmount = 0;
+    let totalSixMonthAmount = 0;
+    let totalYearlyAmount = 0;
+
+    subscriptions.data.forEach(sub => {
+      if (sub.status === 'active') {
+        sub.items.data.forEach(item => {
+          const amount = (item.price.unit_amount / 100) * item.quantity;
+          const interval = item.price.recurring?.interval;
+          
+          if (interval === 'month') {
+            totalMonthlyAmount += amount;
+            totalQuarterlyAmount += amount * 3;
+            totalSixMonthAmount += amount * 6;
+            totalYearlyAmount += amount * 12;
+          } else if (interval === 'year') {
+            totalMonthlyAmount += amount / 12;
+            totalQuarterlyAmount += amount / 4;
+            totalSixMonthAmount += amount / 2;
+            totalYearlyAmount += amount;
+          } else if (interval === 'week') {
+            totalMonthlyAmount += amount * 4.33; // Average weeks per month
+            totalQuarterlyAmount += amount * 13; // Average weeks per quarter
+            totalSixMonthAmount += amount * 26; // Average weeks per 6 months
+            totalYearlyAmount += amount * 52; // Average weeks per year
+          } else if (interval === 'day') {
+            totalMonthlyAmount += amount * 30; // Average days per month
+            totalQuarterlyAmount += amount * 90; // Average days per quarter
+            totalSixMonthAmount += amount * 180; // Average days per 6 months
+            totalYearlyAmount += amount * 365; // Average days per year
+          }
+        });
+      }
+    });
+
+    const usersWithSubscriptions = subscriptions.data
+      .filter(sub => sub.status === 'active')
+      .map(sub => sub.customer.email);
+    
+    const allUsers = await UserModel.find({
+      type: { $nin: ["admin", "moderator"] },
+      isDeleted: false
+    }).select('email');
+
+    const unsubscribedUsers = allUsers.filter(user => 
+      !usersWithSubscriptions.includes(user.email)
+    ).length;
+
+    return res.status(200).json({
+      totalSubscribers,
+      activeSubscriptions,
+      canceledSubscriptions,
+      totalMonthlyAmount: Math.round(totalMonthlyAmount * 100) / 100,
+      totalQuarterlyAmount: Math.round(totalQuarterlyAmount * 100) / 100,
+      totalSixMonthAmount: Math.round(totalSixMonthAmount * 100) / 100,
+      totalYearlyAmount: Math.round(totalYearlyAmount * 100) / 100,
+      unsubscribedUsers
+    });
+  } catch (error) {
+    console.error('Error fetching subscription stats:', error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
+const getAllSubscriptions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, search } = req.query;
+    
+    const subscriptions = await stripe.subscriptions.list({
+      limit: 100,
+      expand: ['data.customer', 'data.items.data.price']
+    });
+
+    let filteredSubscriptions = subscriptions.data;
+
+    if (status && status !== 'all') {
+      filteredSubscriptions = filteredSubscriptions.filter(sub => sub.status === status);
+    }
+
+    if (search) {
+      filteredSubscriptions = filteredSubscriptions.filter(sub => {
+        const customerEmail = sub.customer.email?.toLowerCase() || '';
+        const customerName = sub.customer.name?.toLowerCase() || '';
+        const searchTerm = search.toLowerCase();
+        return customerEmail.includes(searchTerm) || customerName.includes(searchTerm);
+      });
+    }
+
+    filteredSubscriptions.sort((a, b) => b.created - a.created);
+
+    const total = filteredSubscriptions.length;
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedSubscriptions = filteredSubscriptions.slice(startIndex, endIndex);
+
+    const formattedSubscriptions = paginatedSubscriptions.map(sub => {
+      const item = sub.items.data[0];
+      return {
+        id: sub.id,
+        customerId: sub.customer.id,
+        customerEmail: sub.customer.email,
+        customerName: sub.customer.name,
+        status: sub.status,
+        currentPeriodStart: new Date(sub.current_period_start * 1000),
+        currentPeriodEnd: new Date(sub.current_period_end * 1000),
+        created: new Date(sub.created * 1000),
+        canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+        productName: item.price.product?.name || 'Unknown Product',
+        productId: item.price.product?.id || null,
+        priceId: item.price.id,
+        amount: (item.price.unit_amount / 100),
+        currency: item.price.currency,
+        interval: item.price.recurring?.interval,
+        quantity: item.quantity
+      };
+    });
+
+    return res.status(200).json({
+      subscriptions: formattedSubscriptions,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('Error fetching subscriptions:', error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
 module.exports.adminController = {
   login,
   register,
@@ -822,4 +964,6 @@ module.exports.adminController = {
   softDeleteStudent,
   softDeleteFragment,
   softDeleteReply,
+  getSubscriptionStats,
+  getAllSubscriptions,
 };
