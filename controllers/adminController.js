@@ -921,7 +921,7 @@ const getAllSubscriptions = async (req, res) => {
         currentPeriodEnd: new Date(sub.current_period_end * 1000),
         created: new Date(sub.created * 1000),
         canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-        productName: item.price.product?.name || 'Unknown Product',
+        productName: item.price.product?.name || 'Fragments',
         productId: item.price.product?.id || null,
         priceId: item.price.id,
         amount: (item.price.unit_amount / 100),
