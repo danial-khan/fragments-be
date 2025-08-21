@@ -11,7 +11,7 @@ class RecommendationJobService {
   }
 
   init() {
-    cron.schedule('*/3 * * * *', () => {
+    cron.schedule('*/1 * * * *', () => {
       this.runRecommendationJob();
     }, {
       scheduled: true,
