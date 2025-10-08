@@ -4,6 +4,7 @@ const rootRouter = require("./routes");
 const cors = require("cors");
 const cookieParser = require('cookie-parser');
 const { config } = require("./config");
+const recommendationJobService = require("./services/recommendationJob");
 const app = express();
 
 
@@ -20,6 +21,8 @@ app.use(express.json({
   limit: '50mb'
 }));
 app.use(rootRouter);
+
+recommendationJobService.init();
 
 app.get("/", (req, res) => {
   res.send("Node.js is now integrated!");

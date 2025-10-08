@@ -130,6 +130,12 @@ const fragmentController = {
         { $inc: { viewCount: 1 } }
       );
 
+      // Update recommendation interaction if user is authenticated
+      if (req.user && req.user._id) {
+        const recommendationJobService = require('../services/recommendationJob');
+        recommendationJobService.updateUserInteraction(req.user._id, fragment._id, 'view');
+      }
+
       res.status(200).json(fragment);
     } catch (err) {
       console.error("getFragment error:", err);

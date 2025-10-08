@@ -106,4 +106,17 @@ adminRouter.delete(
   adminController.softDeleteReply
 );
 
+// Subscription routes
+adminRouter.get(
+  "/subscriptions/stats",
+  adminMiddleware,
+  adminController.getSubscriptionStats
+);
+
+adminRouter.get(
+  "/subscriptions",
+  adminMiddleware,
+  adminController.getAllSubscriptions
+);
+
 module.exports = adminRouter;
