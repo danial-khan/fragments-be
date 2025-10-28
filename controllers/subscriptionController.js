@@ -46,6 +46,13 @@ const createCheckoutSession = async (req, res) => {
   }
 };
 
+const PLAN_CONFIG = {
+  basic_learner: { hasAds: true, newsletter: false },
+  pro_learner: { hasAds: false, newsletter: true },
+  basic_educator: { hasAds: true, newsletter: false },
+  pro_educator: { hasAds: false, newsletter: true },
+};
+
 const paymentSuccess = async (req, res) => {
   try {
     const sessionId = req.params.session_id;
@@ -63,9 +70,18 @@ const paymentSuccess = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+
+    // Get plan configuration
+    const planConfig = PLAN_CONFIG[plan];
+    if (!planConfig) {
+      return res.status(400).json({ error: "Invalid subscription plan" });
+    }
+
     user.subscription.id = session.subscription;
     user.subscription.plan = plan;
     user.subscription.subscriptionDate = new Date();
+    user.subscription.hasAds = planConfig.hasAds;
+    user.subscription.newsletter = planConfig.newsletter;
     await user.save();
 
     return res.redirect(`${config.UI_BASE_URL}/dashboard`);

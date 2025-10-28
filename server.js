@@ -5,6 +5,8 @@ const cors = require("cors");
 const cookieParser = require('cookie-parser');
 const { config } = require("./config");
 const recommendationJobService = require("./services/recommendationJob");
+const { createDefaultAdminUser } = require("./utils/createAdmin");
+const { createDefaultCategories } = require("./utils/createDefaultCategories");
 const app = express();
 
 
@@ -23,6 +25,10 @@ app.use(express.json({
 app.use(rootRouter);
 
 recommendationJobService.init();
+
+// Initialize default data
+createDefaultAdminUser();
+createDefaultCategories();
 
 app.get("/", (req, res) => {
   res.send("Node.js is now integrated!");

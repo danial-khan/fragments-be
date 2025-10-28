@@ -49,10 +49,22 @@ const userSchema = new mongoose.Schema(
 
     subscription: {
       id: String,
-      plan: String,
+      plan: {
+        type: String,
+        enum: ['basic_learner', 'pro_learner', 'basic_educator', 'pro_educator'],
+        default: null,
+      },
       subscriptionDate: {
         type: Date,
         default: null,
+      },
+      hasAds: {
+        type: Boolean,
+        default: true,
+      },
+      newsletter: {
+        type: Boolean,
+        default: false,
       },
     },
 
