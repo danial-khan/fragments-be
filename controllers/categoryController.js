@@ -1,9 +1,10 @@
 const CategoryModel = require("../database/models/category");
+const { errorResponse, serverError } = require("../utils/response");
 
 const colors = [
-  "green", "purple", "red", "amber", "orange", "yellow", "lime",  "emerald",
-  "teal", "cyan", "sky", "blue", "indigo", "violet", 
-  "fuchsia", "pink", "rose", "slate", "gray", "zinc", "neutral", "stone"
+  "green", "purple", "red", "amber", "orange", "yellow", "lime", "emerald",
+  "teal", "cyan", "sky", "blue", "indigo", "violet",
+  "fuchsia", "pink", "rose", "slate", "gray", "zinc", "neutral", "stone",
 ];
 
 const createCategory = async (req, res) => {
@@ -11,23 +12,21 @@ const createCategory = async (req, res) => {
     const { name } = req.body;
 
     if (!name) {
-      return res.status(400).json({ error: "Name is required" });
+      return errorResponse(res, 400, "Category name is required.", "VALIDATION_ERROR");
     }
 
     const slug = name
       .toLowerCase()
       .replace(/ /g, "-")
       .replace(/[^\w-]+/g, "");
+
     if (!slug) {
-      return res.status(400).json({ error: "Slug is required" });
+      return errorResponse(res, 400, "Category name produced an invalid slug.", "VALIDATION_ERROR");
     }
 
-    const existingCategoriesLength = await CategoryModel.countDocuments({
-      isDeleted: false,
-    });
+    const existingCategoriesLength = await CategoryModel.countDocuments({ isDeleted: false });
     const color = colors[existingCategoriesLength + 1] || colors[0];
 
-    // Check if a category (deleted or not) with same slug or name already exists
     const existingCategory = await CategoryModel.findOne({
       $or: [{ name }, { slug }],
     });
@@ -46,9 +45,12 @@ const createCategory = async (req, res) => {
           category: existingCategory,
         });
       } else {
-        return res.status(400).json({
-          error: "Category with this name or slug already exists",
-        });
+        return errorResponse(
+          res,
+          409,
+          "A category with this name or slug already exists.",
+          "CONFLICT"
+        );
       }
     }
 
@@ -56,7 +58,7 @@ const createCategory = async (req, res) => {
     res.status(201).json(newCategory);
   } catch (err) {
     console.error("Create category error:", err);
-    res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 
@@ -69,30 +71,27 @@ const getCategories = async (req, res) => {
     res.status(200).json(categories);
   } catch (err) {
     console.error("Get categories error:", err);
-    res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 
 const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedCategory = await CategoryModel.findOne({
-      _id: id,
-      isDeleted: false,
-    });
+    const category = await CategoryModel.findOne({ _id: id, isDeleted: false });
 
-    if (!deletedCategory) {
-      return res.status(404).json({ error: "Category not found" });
+    if (!category) {
+      return errorResponse(res, 404, "Category not found.", "NOT_FOUND");
     }
 
-    deletedCategory.isDeleted = true;
-    deletedCategory.active = false;
-    await deletedCategory.save();
+    category.isDeleted = true;
+    category.active = false;
+    await category.save();
 
     res.status(200).json({ message: "Category deleted successfully" });
   } catch (err) {
     console.error("Delete category error:", err);
-    res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 

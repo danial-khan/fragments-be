@@ -10,9 +10,8 @@ const eventService = {
       });
       
       await event.save();
-      console.log("✅ Saved event to MongoDB");
     } catch (error) {
-      console.error("❌ Error writing to MongoDB:", error);
+      console.error("Error writing event to MongoDB:", error);
     }
   },
 

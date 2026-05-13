@@ -1,5 +1,6 @@
 const { config } = require("../config");
 const UserModel = require("../database/models/user");
+const { errorResponse, serverError } = require("../utils/response");
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
@@ -9,48 +10,38 @@ const createCheckoutSession = async (req, res) => {
     const lookupKey = req.body.plan;
 
     if (!lookupKey) {
-      return res.status(400).json({ error: "Missing plan (lookup_key)" });
+      return errorResponse(res, 400, "A subscription plan is required.", "VALIDATION_ERROR");
     }
 
-    // Get the price object using the lookup key
     const prices = await stripe.prices.list({
       lookup_keys: [lookupKey],
       expand: ["data.product"],
     });
 
     if (!prices.data.length) {
-      return res
-        .status(404)
-        .json({ error: "Price not found for the given lookup key" });
+      return errorResponse(res, 404, "The selected plan does not exist.", "NOT_FOUND");
     }
 
     const price = prices.data[0];
 
-    // Create checkout session
     const session = await stripe.checkout.sessions.create({
-      line_items: [
-        {
-          price: price.id,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: price.id, quantity: 1 }],
       mode: price.type === "recurring" ? "subscription" : "payment",
       success_url: `${config.STRIPE_SUCCESS_CALLBACK_URL}/{CHECKOUT_SESSION_ID}?userId=${user._id}&plan=${req.body.plan}`,
     });
 
-    // Send back session URL to redirect user
     res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Stripe checkout error:", err);
+    return serverError(res);
   }
 };
 
 const PLAN_CONFIG = {
-  basic_learner: { hasAds: true, newsletter: false },
-  pro_learner: { hasAds: false, newsletter: true },
-  basic_educator: { hasAds: true, newsletter: false },
-  pro_educator: { hasAds: false, newsletter: true },
+  basic_learner:   { hasAds: true,  newsletter: false },
+  pro_learner:     { hasAds: false, newsletter: true  },
+  basic_educator:  { hasAds: true,  newsletter: false },
+  pro_educator:    { hasAds: false, newsletter: true  },
 };
 
 const paymentSuccess = async (req, res) => {
@@ -60,21 +51,17 @@ const paymentSuccess = async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (!session) {
-      return res
-        .status(404)
-        .json({ error: "There was a problem processing the payment" });
+      return errorResponse(res, 404, "Payment session not found.", "NOT_FOUND");
     }
 
-    // Update user subscription details in the database
     const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return errorResponse(res, 404, "User not found.", "USER_NOT_FOUND");
     }
 
-    // Get plan configuration
     const planConfig = PLAN_CONFIG[plan];
     if (!planConfig) {
-      return res.status(400).json({ error: "Invalid subscription plan" });
+      return errorResponse(res, 400, "Invalid subscription plan.", "VALIDATION_ERROR");
     }
 
     user.subscription.id = session.subscription;
@@ -87,7 +74,7 @@ const paymentSuccess = async (req, res) => {
     return res.redirect(`${config.UI_BASE_URL}/dashboard`);
   } catch (err) {
     console.error("Payment success error:", err);
-    res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 

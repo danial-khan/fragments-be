@@ -1,32 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const recommendationController = require('../controllers/recommendationController');
-const { authMiddleware } = require('../middlewares/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../middlewares/auth');
 
-// Apply auth middleware to all routes
-router.use(authMiddleware);
+router.get('/user', optionalAuthMiddleware, recommendationController.getUserRecommendations);
 
-// Get personalized recommendations for the user
-router.get('/user', recommendationController.getUserRecommendations);
-
-// Mark recommendation as viewed
-router.post('/view/:fragmentId', recommendationController.markRecommendationViewed);
-
-// Mark recommendation as clicked
-router.post('/click/:fragmentId', recommendationController.markRecommendationClicked);
-
-// Get recommendation statistics
-router.get('/stats', recommendationController.getRecommendationStats);
-
-// Get recommendation reasons breakdown
-router.get('/reasons', recommendationController.getRecommendationReasons);
-
-// Get similar fragments
+router.post('/view/:fragmentId', authMiddleware, recommendationController.markRecommendationViewed);
+router.post('/click/:fragmentId', authMiddleware, recommendationController.markRecommendationClicked);
+router.get('/stats', authMiddleware, recommendationController.getRecommendationStats);
+router.get('/reasons', authMiddleware, recommendationController.getRecommendationReasons);
 router.get('/similar/:fragmentId', recommendationController.getSimilarFragments);
 
-// Admin routes
-router.post('/admin/trigger-job', recommendationController.triggerRecommendationJob);
-router.get('/admin/job-status', recommendationController.getJobStatus);
-router.delete('/admin/cleanup', recommendationController.cleanupOldRecommendations);
+router.post('/admin/trigger-job', authMiddleware, recommendationController.triggerRecommendationJob);
+router.get('/admin/job-status', authMiddleware, recommendationController.getJobStatus);
+router.delete('/admin/cleanup', authMiddleware, recommendationController.cleanupOldRecommendations);
 
-module.exports = router; 
+module.exports = router;

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const UserModel = require("../database/models/user");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const { errorResponse, serverError } = require("../utils/response");
 
 const authorsController = {
   getAuthors: async (req, res) => {
@@ -8,20 +9,17 @@ const authorsController = {
       const { search } = req.query;
       const currentUserId = req.user?._id;
 
-      const matchStage = {
-        type: "author",
-        active: true,
-        _id: { $ne: currentUserId },
-      };
+      const matchStage = { type: "author", active: true };
+      if (currentUserId) {
+        matchStage._id = { $ne: currentUserId };
+      }
 
       if (search) {
         matchStage.name = { $regex: search, $options: "i" };
       }
 
       const authors = await UserModel.aggregate([
-        {
-          $match: matchStage,
-        },
+        { $match: matchStage },
         {
           $lookup: {
             from: "usercredentials",
@@ -31,10 +29,7 @@ const authorsController = {
           },
         },
         {
-          $unwind: {
-            path: "$credentials",
-            preserveNullAndEmptyArrays: true,
-          },
+          $unwind: { path: "$credentials", preserveNullAndEmptyArrays: true },
         },
         {
           $project: {
@@ -60,21 +55,21 @@ const authorsController = {
 
       return res.status(200).json({ authors });
     } catch (error) {
-      console.error("Error in getAuthors:", error);
-      return res.status(500).json({ message: "Something went wrong" });
+      console.error("Get authors error:", error);
+      return serverError(res);
     }
   },
 
   followAuthor: async (req, res) => {
     const currentUserId = req.user._id;
-    const authorId = req.params.id;
+    const { id: authorId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(authorId)) {
-      return res.status(400).json({ message: "Invalid author ID" });
+      return errorResponse(res, 400, "Invalid author ID.", "VALIDATION_ERROR");
     }
 
-    if (currentUserId === authorId) {
-      return res.status(400).json({ message: "You cannot follow yourself" });
+    if (currentUserId.equals(authorId)) {
+      return errorResponse(res, 400, "You cannot follow yourself.", "VALIDATION_ERROR");
     }
 
     try {
@@ -82,17 +77,15 @@ const authorsController = {
       const author = await UserModel.findById(authorId);
 
       if (!author || author.type !== "author") {
-        return res.status(404).json({ message: "Author not found" });
+        return errorResponse(res, 404, "Author not found.", "NOT_FOUND");
       }
 
       const isFollowing = user.following.includes(authorId);
 
       if (isFollowing) {
-        // Unfollow
         user.following.pull(authorId);
         author.followers.pull(currentUserId);
       } else {
-        // Follow
         user.following.push(authorId);
         author.followers.push(currentUserId);
       }
@@ -106,7 +99,7 @@ const authorsController = {
       });
     } catch (error) {
       console.error("Follow author error:", error);
-      return res.status(500).json({ message: "Something went wrong" });
+      return serverError(res);
     }
   },
 };

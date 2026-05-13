@@ -51,11 +51,11 @@ const PLANS = {
 
 async function setupStripeSubscriptions() {
   try {
-    console.log("🚀 Starting Stripe subscription setup...\n");
+    console.log("Starting Stripe subscription setup\n");
 
     // Create products and prices for each plan
     for (const [key, plan] of Object.entries(PLANS)) {
-      console.log(`📦 Creating product: ${plan.name}...`);
+      console.log(`Creating product: ${plan.name}...`);
 
       // Create product
       const product = await stripe.products.create({
@@ -68,7 +68,7 @@ async function setupStripeSubscriptions() {
         }
       });
 
-      console.log(`   ✅ Product created: ${product.id}`);
+      console.log(`   Product created: ${product.id}`);
 
       // Create price
       const price = await stripe.prices.create({
@@ -84,21 +84,21 @@ async function setupStripeSubscriptions() {
         }
       });
 
-      console.log(`   ✅ Price created: ${price.id}`);
-      console.log(`   💰 Price: $${(plan.price / 100).toFixed(2)}/month`);
-      console.log(`   🔑 Lookup Key: ${plan.lookup_key}\n`);
+      console.log(`   Price created: ${price.id}`);
+      console.log(`   Amount: $${(plan.price / 100).toFixed(2)}/month`);
+      console.log(`   Lookup Key: ${plan.lookup_key}\n`);
     }
 
-    console.log("✨ All subscription plans created successfully!");
-    console.log("\n📋 Summary:");
+    console.log("All subscription plans created successfully.");
+    console.log("\nSummary:");
     console.log("   - Basic Learner: $5/month (with ads)");
     console.log("   - Pro Learner: $15/month (no ads + newsletter)");
     console.log("   - Basic Educator: $20/month (with ads)");
     console.log("   - Pro Educator: $30/month (no ads + newsletter)");
-    console.log("\n⚠️  Note: Update your .env file if needed");
+    console.log("\nNote: Update your .env file if needed");
 
   } catch (error) {
-    console.error("❌ Error setting up Stripe subscriptions:", error.message);
+    console.error("Error setting up Stripe subscriptions:", error.message);
     if (error.raw) {
       console.error("Raw error:", error.raw);
     }
@@ -108,7 +108,7 @@ async function setupStripeSubscriptions() {
 
 // Optional: Function to list existing prices (for cleanup)
 async function listExistingPrices() {
-  console.log("\n📋 Listing existing prices...\n");
+  console.log("\nListing existing prices...\n");
   const prices = await stripe.prices.list({ limit: 100 });
   
   for (const price of prices.data) {
@@ -123,7 +123,7 @@ async function listExistingPrices() {
 
 // Optional: Function to archive old prices
 async function archiveOldPrices(lookupKeys) {
-  console.log("\n🗑️  Archiving old prices...\n");
+  console.log("\nArchiving old prices...\n");
   
   for (const lookupKey of lookupKeys) {
     try {
@@ -134,11 +134,11 @@ async function archiveOldPrices(lookupKeys) {
       for (const price of prices.data) {
         if (price.active) {
           await stripe.prices.update(price.id, { active: false });
-          console.log(`   ✅ Archived price: ${price.id} (${lookupKey})`);
+          console.log(`   Archived price: ${price.id} (${lookupKey})`);
         }
       }
     } catch (error) {
-      console.log(`   ⚠️  No price found for lookup key: ${lookupKey}`);
+      console.log(`   No price found for lookup key: ${lookupKey}`);
     }
   }
 }
@@ -155,7 +155,7 @@ async function archiveOldPrices(lookupKeys) {
   } else {
     await setupStripeSubscriptions();
     
-    console.log("\n💡 Next steps:");
+    console.log("\nNext steps:");
     console.log("   1. Verify products in Stripe Dashboard");
     console.log("   2. Run: node scripts/setup-stripe-subscriptions.js --list (to verify)");
     console.log("   3. Run: node scripts/setup-stripe-subscriptions.js --archive-old (to disable old plans)");

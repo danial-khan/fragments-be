@@ -28,13 +28,13 @@ function stripHTML(html) {
   const textA = extractTextFromFragment(fragment1);
   const textB = extractTextFromFragment(fragment2);
 
-  console.log("🔍 Comparing the following fragments:\n");
-  console.log("📘 Fragment A:\n", textA);
-  console.log("\n📙 Fragment B:\n", textB);
+  console.log("Comparing the following fragments:\n");
+  console.log("Fragment A:\n", textA);
+  console.log("\nFragment B:\n", textB);
   console.log("\n----------------------------------\n");
 
   const result = await compareFragmentsWithAI(textA, textB);
 
-  console.log("📊 Similarity Result:\n");
+  console.log("Similarity Result:\n");
   console.dir(result, { depth: null });
 })();

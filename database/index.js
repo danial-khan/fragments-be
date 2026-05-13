@@ -8,5 +8,5 @@ module.exports.connectDatabase = () =>
       console.log("Database connection established...");
     })
     .catch((error) => {
-      console.log("couldn't connect to mongodb", error.message);
+      console.error("MongoDB connection failed:", error.message);
     });

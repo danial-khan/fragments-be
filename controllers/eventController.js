@@ -5,13 +5,13 @@ const getLocationFromIP = require("../utils/location");
 const eventController = {
   track: async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user?._id ?? null;
       const timestamp = new Date().toISOString();
       const userAgent = req.headers["user-agent"] || "";
       const deviceInfo = parseUserAgent(userAgent);
       const ip =
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket.remoteAddress;;
+        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress;
       const location = getLocationFromIP(req.ip);
 
       const eventPayload = {

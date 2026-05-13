@@ -6,6 +6,7 @@ const { config } = require("../config");
 const UserCredentialsModel = require("../database/models/userCredentials");
 const { mongoose } = require("mongoose");
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const { errorResponse, serverError } = require("../utils/response");
 
 const slugify = (str) =>
   str
@@ -66,8 +67,8 @@ const login = async (req, res) => {
       user: restUser,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("Admin error:", error);
+    return serverError(res);
   }
 };
 
@@ -111,8 +112,8 @@ const register = async (req, res) => {
 
     return res.status(201).json({ message: "Moderator registered!" });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ success: false, message: "something went wrong" });
+    console.error("Admin error:", error);
+    serverError(res);
   }
 };
 
@@ -174,7 +175,7 @@ const getStats = async (_req, res) => {
       totalInactive,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -190,7 +191,7 @@ const getAuthors = async (req, res) => {
       authors,
     });
   } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -203,7 +204,7 @@ const getAuthorsFromUsersTable = async (req, res) => {
       authors,
     });
   } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -219,7 +220,7 @@ const getStudents = async (req, res) => {
       students,
     });
   } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -244,7 +245,7 @@ const updateCredentialsStatus = async (req, res) => {
       message: "status updateds successfully",
     });
   } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -264,8 +265,8 @@ const getUsers = async (req, res) => {
       users,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    console.error("Admin error:", error);
+    serverError(res);
   }
 };
 
@@ -370,7 +371,7 @@ const getAllFragmentsForAdmin = async (req, res) => {
     });
   } catch (err) {
     console.error("Get fragments error:", err);
-    return res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 
@@ -532,7 +533,7 @@ const getAllCommentsForAdmin = async (req, res) => {
     });
   } catch (err) {
     console.error("Admin get replies error:", err);
-    res.status(500).json({ error: err.message });
+    serverError(res);
   }
 };
 
@@ -581,7 +582,7 @@ const toggleReplyStatus = async (req, res) => {
     });
   } catch (err) {
     console.error("Toggle reply status error:", err);
-    return res.status(500).json({ error: err.message });
+    return serverError(res);
   }
 };
 
@@ -608,7 +609,7 @@ const updateUserStatus = async (req, res) => {
       message: "status updateds successfully",
     });
   } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -633,7 +634,7 @@ const updateFragmentStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating fragment status:", error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -874,7 +875,7 @@ const getSubscriptionStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching subscription stats:', error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 
@@ -939,7 +940,7 @@ const getAllSubscriptions = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching subscriptions:', error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+    serverError(res);
   }
 };
 

@@ -50,7 +50,7 @@ Respond only in the following JSON format:
 
     return { similarityScore, summary, status };
   } catch (err) {
-    console.error("❌ Failed to parse comparison result:", err);
+    console.error("Failed to parse comparison result:", err);
     return {
       similarityScore: 0,
       summary: "Unable to determine similarity due to response format error.",

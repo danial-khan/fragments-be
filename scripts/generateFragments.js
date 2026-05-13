@@ -82,7 +82,7 @@ Return ONLY a valid JSON object with this exact structure:
     
     return fragmentData;
   } catch (error) {
-    console.error(`   ❌ Error generating content: ${error.message}`);
+    console.error(`   Error generating content: ${error.message}`);
     throw error;
   }
 };
@@ -149,13 +149,13 @@ const createFragment = async (fragmentData, categoryId, authorId) => {
  */
 const generateFragments = async () => {
   try {
-    console.log("🚀 Starting Fragment Generation Script\n");
+    console.log("Starting Fragment Generation Script\n");
 
     // Get user ID from command line arguments
     const userId = process.argv[2];
     
     if (!userId) {
-      console.error("❌ Error: User ID is required!");
+      console.error("Error: User ID is required");
       console.log("\nUsage:");
       console.log("  node scripts/generateFragments.js <userId>\n");
       console.log("Example:");
@@ -164,48 +164,48 @@ const generateFragments = async () => {
     }
 
     // Connect to database
-    console.log("📦 Connecting to database...");
+    console.log("Connecting to database...");
     await connectDatabase();
-    console.log("✅ Database connected\n");
+    console.log("Database connected\n");
 
     // Validate user ID format
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      console.error("❌ Error: Invalid user ID format!");
+      console.error("Error: Invalid user ID format");
       console.log("Please provide a valid MongoDB ObjectId\n");
       process.exit(1);
     }
 
     // Get specified user as author
-    console.log(`👤 Finding user with ID: ${userId}...`);
+    console.log(`Finding user with ID: ${userId}...`);
     const user = await UserModel.findById(userId);
 
     if (!user) {
-      console.error("❌ User not found!");
+      console.error("User not found");
       console.log("Please check the user ID and try again.\n");
       process.exit(1);
     }
     
     if (user.isDeleted) {
-      console.error("❌ This user account is deleted!");
+      console.error("This user account is deleted");
       process.exit(1);
     }
     
-    console.log(`✅ Using user: ${user.email} (${user.name})`);
+    console.log(`Using user: ${user.email} (${user.name})`);
     console.log(`   Type: ${user.type}`);
     console.log();
 
     // Get all active categories
-    console.log("📚 Fetching categories...");
+    console.log("Fetching categories...");
     const categories = await CategoryModel.find({
       isDeleted: false,
       active: true
     }).sort({ name: 1 });
 
     if (categories.length === 0) {
-      console.error("❌ No categories found. Please create categories first.");
+      console.error("No categories found. Please create categories first.");
       process.exit(1);
     }
-    console.log(`✅ Found ${categories.length} categories\n`);
+    console.log(`Found ${categories.length} categories\n`);
 
     // Statistics
     let totalGenerated = 0;
@@ -219,7 +219,7 @@ const generateFragments = async () => {
     for (let i = 0; i < categories.length; i++) {
       const category = categories[i];
       console.log(`\n${"=".repeat(60)}`);
-      console.log(`📖 Category ${i + 1}/${categories.length}: ${category.name} (${category.color})`);
+      console.log(`Category ${i + 1}/${categories.length}: ${category.name} (${category.color})`);
       console.log(`${"=".repeat(60)}\n`);
 
       let categorySuccess = 0;
@@ -248,16 +248,16 @@ const generateFragments = async () => {
 
           if (result.success) {
             if (result.blocked) {
-              console.log("⚠️  BLOCKED");
+              console.log("BLOCKED");
               categoryBlocked++;
               totalBlocked++;
             } else {
-              console.log("✅ SUCCESS");
+              console.log("SUCCESS");
               categorySuccess++;
               totalSuccess++;
             }
           } else {
-            console.log(`❌ FAILED: ${result.error}`);
+            console.log(`FAILED: ${result.error}`);
             categoryFailed++;
             totalFailed++;
           }
@@ -268,7 +268,7 @@ const generateFragments = async () => {
           await new Promise(resolve => setTimeout(resolve, 1000));
 
         } catch (error) {
-          console.log(`❌ ERROR: ${error.message}`);
+          console.log(`ERROR: ${error.message}`);
           categoryFailed++;
           totalFailed++;
           totalGenerated++;
@@ -276,21 +276,21 @@ const generateFragments = async () => {
       }
 
       // Category summary
-      console.log(`\n   📊 Category Summary:`);
-      console.log(`      ✅ Success: ${categorySuccess}`);
-      console.log(`      ⚠️  Blocked: ${categoryBlocked}`);
-      console.log(`      ❌ Failed: ${categoryFailed}`);
+      console.log(`\n   Category Summary:`);
+      console.log(`      Success: ${categorySuccess}`);
+      console.log(`      Blocked: ${categoryBlocked}`);
+      console.log(`      Failed: ${categoryFailed}`);
     }
 
     // Final summary
     console.log(`\n${"=".repeat(60)}`);
-    console.log("🎉 FRAGMENT GENERATION COMPLETE");
+    console.log("FRAGMENT GENERATION COMPLETE");
     console.log(`${"=".repeat(60)}\n`);
-    console.log(`📊 Final Statistics:`);
+    console.log(`Final Statistics:`);
     console.log(`   Total Processed: ${totalGenerated}`);
-    console.log(`   ✅ Successfully Created: ${totalSuccess}`);
-    console.log(`   ⚠️  Blocked by AI: ${totalBlocked}`);
-    console.log(`   ❌ Failed: ${totalFailed}`);
+    console.log(`   Successfully Created: ${totalSuccess}`);
+    console.log(`   Blocked by AI: ${totalBlocked}`);
+    console.log(`   Failed: ${totalFailed}`);
     console.log(`\n   User: ${user.email}`);
     console.log(`   Categories: ${categories.length}`);
     console.log(`   Fragments per Category: ${fragmentsPerCategory}`);
@@ -298,14 +298,14 @@ const generateFragments = async () => {
     console.log();
 
   } catch (error) {
-    console.error("\n❌ Script Error:", error.message);
+    console.error("\nScript Error:", error.message);
     console.error(error.stack);
     process.exit(1);
   } finally {
     // Close database connection
-    console.log("🔌 Closing database connection...");
+    console.log("Closing database connection...");
     await mongoose.connection.close();
-    console.log("✅ Done!\n");
+    console.log("Done.\n");
     process.exit(0);
   }
 };

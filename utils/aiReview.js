@@ -33,7 +33,7 @@ async function analyzeContentWithAI(text, type = "fragments") {
     summary = feedback.summary || "";
     delete feedback.summary; // remove summary from main object
   } catch (err) {
-    console.error("❌ Failed to parse AI feedback:", err);
+    console.error("Failed to parse AI feedback:", err);
     feedback =
       type === "fragments"
         ? {

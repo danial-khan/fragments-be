@@ -6,7 +6,8 @@ const mailer = require("../utils/mailer");
 const { config } = require("../config");
 const jwt = require("jsonwebtoken");
 const UserCredentialsModel = require("../database/models/userCredentials");
-const {uploadToCloudinary, deleteFromCloudinary} = require("../utils/cloudinary");
+const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary");
+const { errorResponse, serverError } = require("../utils/response");
 
 const slugify = (str) =>
   str
@@ -20,12 +21,12 @@ const register = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required." });
+      return errorResponse(res, 400, "All fields are required.", "VALIDATION_ERROR");
     }
 
     const existingUser = await UserModel.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists." });
+      return errorResponse(res, 409, "An account with this email already exists.", "USER_EXISTS");
     }
 
     const hashedPassword = crypto
@@ -75,7 +76,7 @@ const register = async (req, res) => {
       .json({ message: "User registered. Verification email sent!" });
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
@@ -84,14 +85,12 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required." });
+      return errorResponse(res, 400, "Email and password are required.", "VALIDATION_ERROR");
     }
 
     const user = await UserModel.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      return errorResponse(res, 401, "Invalid email or password.", "INVALID_CREDENTIALS");
     }
     const isMatch = crypto.timingSafeEqual(
       Buffer.from(user.password, "utf8"),
@@ -101,18 +100,14 @@ const login = async (req, res) => {
       )
     );
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      return errorResponse(res, 401, "Invalid email or password.", "INVALID_CREDENTIALS");
     }
 
     if (user.verificationCode) {
-      return res.status(403).json({
-        message: "Email not verified. Please check your email to verify.",
-      });
+      return errorResponse(res, 403, "Email not verified. Please check your inbox.", "EMAIL_NOT_VERIFIED");
     }
     if (!user.active) {
-      return res.status(403).json({
-        message: "User not active. Please contact support.",
-      });
+      return errorResponse(res, 403, "This account is inactive. Please contact support.", "ACCOUNT_INACTIVE");
     }
     const { name, email: userEmail, avatar, _id: userId } = user.toJSON();
     const token = jwt.sign(
@@ -141,7 +136,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
@@ -149,15 +144,11 @@ const verifyEmail = async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) {
-      return res
-        .status(400)
-        .json({ message: "Verification code is required." });
+      return errorResponse(res, 400, "Verification code is required.", "VALIDATION_ERROR");
     }
     const user = await UserModel.findOne({ verificationCode: code });
     if (!user) {
-      return res
-        .status(400)
-        .json({ message: "Invalid or expired verification code." });
+      return errorResponse(res, 400, "Invalid or expired verification code.", "INVALID_CODE");
     }
     user.active = true;
     user.verificationCode = null;
@@ -167,17 +158,24 @@ const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.error("Email verification error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
 const getSession = (req, res) => {
   try {
     const user = req.user;
-    const userCredentials = req.userCredentials;
-    res.status(200).json({ user: user, userCredentials });
+    if (!user) {
+      return res.status(200).json({ user: null, userCredentials: null });
+    }
+    const userCredentials = req.userCredentials ?? null;
+    res.status(200).json({
+      user: typeof user.toJSON === "function" ? user.toJSON() : user,
+      userCredentials,
+    });
   } catch (error) {
-    return res.status(401).json({ message: "Unauthorized" });
+    console.error("Get session error:", error);
+    return serverError(res);
   }
 };
 
@@ -195,7 +193,7 @@ const logout = (req, res) => {
     res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     console.error("Logout error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
@@ -204,12 +202,12 @@ const forgetPassword = async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ message: "Email is required." });
+      return errorResponse(res, 400, "Email is required.", "VALIDATION_ERROR");
     }
 
     const user = await UserModel.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return errorResponse(res, 404, "No account found with that email.", "USER_NOT_FOUND");
     }
 
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -233,8 +231,8 @@ const forgetPassword = async (req, res) => {
 
     res.status(200).json({ message: "Password reset email sent!" });
   } catch (error) {
-    console.error("Reset password request error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Forgot password error:", error);
+    return serverError(res);
   }
 };
 
@@ -244,14 +242,12 @@ const changePassword = async (req, res) => {
     const userId = req.user._id;
 
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({
-        message: "Both old and new passwords are required.",
-      });
+      return errorResponse(res, 400, "Both old and new passwords are required.", "VALIDATION_ERROR");
     }
 
     const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return errorResponse(res, 404, "User not found.", "USER_NOT_FOUND");
     }
     const isMatch = crypto.timingSafeEqual(
       Buffer.from(user.password, "utf8"),
@@ -261,7 +257,7 @@ const changePassword = async (req, res) => {
       )
     );
     if (!isMatch) {
-      return res.status(401).json({ message: "Old password is incorrect." });
+      return errorResponse(res, 401, "Current password is incorrect.", "INVALID_CREDENTIALS");
     }
 
     const isSamePassword = crypto.timingSafeEqual(
@@ -272,9 +268,7 @@ const changePassword = async (req, res) => {
       )
     );
     if (isSamePassword) {
-      return res.status(400).json({
-        message: "New password must be different from current password.",
-      });
+      return errorResponse(res, 400, "New password must be different from the current password.", "VALIDATION_ERROR");
     }
     const hashedPassword = crypto
       .createHash("sha256")
@@ -287,7 +281,7 @@ const changePassword = async (req, res) => {
     res.status(200).json({ message: "Password changed successfully!" });
   } catch (error) {
     console.error("Change password error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
@@ -298,21 +292,17 @@ const editProfile = async (req, res) => {
       req.body;
 
     if (!name || !username) {
-      return res
-        .status(400)
-        .json({ message: "Name and username are required." });
+      return errorResponse(res, 400, "Name and username are required.", "VALIDATION_ERROR");
     }
 
     const user = await UserModel.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) return errorResponse(res, 404, "User not found.", "USER_NOT_FOUND");
 
-    // ✅ Update basic fields
     user.name = name;
     user.username = username;
     user.website = website;
     user.showStats = showStats;
 
-    // ✅ Parse and assign nested objects
     if (location) {
       const parsedLocation =
         typeof location === "string" ? JSON.parse(location) : location;
@@ -334,7 +324,6 @@ const editProfile = async (req, res) => {
       };
     }
 
-    // ✅ Avatar Upload
     if (req.files?.avatar) {
       const avatarFile = req.files.avatar[0];
       if (user.avatar?.public_id) {
@@ -347,7 +336,6 @@ const editProfile = async (req, res) => {
       };
     }
 
-    // ✅ Cover Upload
     if (req.files?.cover) {
       const coverFile = req.files.cover[0];
       if (user.cover?.public_id) {
@@ -362,14 +350,12 @@ const editProfile = async (req, res) => {
 
     await user.save();
 
-    // ✅ Handle bio from credentials model
     const userCredentialsDoc = await UserCredentialsModel.findOne({ userId });
     if (userCredentialsDoc && bio !== undefined) {
       userCredentialsDoc.bio = bio;
       await userCredentialsDoc.save();
     }
 
-    // ✅ Prepare response
     const {
       _id,
       name: uName,
@@ -412,7 +398,7 @@ const editProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Edit profile error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
@@ -429,9 +415,7 @@ const resetPassword = async (req, res) => {
 
     const user = await UserModel.findOne({ resetCode: code });
     if (!user) {
-      return res
-        .status(400)
-        .json({ message: "Invalid or expired reset code." });
+      return errorResponse(res, 400, "Invalid or expired reset code.", "INVALID_CODE");
     }
 
     const hashedPassword = crypto
@@ -448,15 +432,15 @@ const resetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("Reset password error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return serverError(res);
   }
 };
 
 const contactUs = async (req, res) => {
   try {
     const { name, email, subject, message } = req.body;
-    if ((!name || !email, !subject, !message)) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !subject || !message) {
+      return errorResponse(res, 400, "All fields are required.", "VALIDATION_ERROR");
     }
 
     // Render reset email template
@@ -496,9 +480,8 @@ const contactUs = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    res.status(500).json({
-      message: "Something went wrong",
-    });
+    console.error("Contact us error:", error);
+    return serverError(res);
   }
 };
 
@@ -509,11 +492,11 @@ const onboarding = async (req, res) => {
       req.body;
 
     if (!name || !credentials || !institution || !expertise || !bio || !type) {
-      return res.status(400).json({ message: "All fields are required." });
+      return errorResponse(res, 400, "All fields are required.", "VALIDATION_ERROR");
     }
 
     if (type === "author" && !file) {
-      return res.status(400).json({ message: "All fields are required." });
+      return errorResponse(res, 400, "A credential document is required for authors.", "VALIDATION_ERROR");
     }
 
     const userCredentials = await UserCredentialsModel.create({
@@ -535,7 +518,7 @@ const onboarding = async (req, res) => {
       .json({ message: "Onboarding successful.", userCredentials });
   } catch (error) {
     console.error("Onboarding error:", error);
-    res.status(500).json({ message: "Internal server error." });
+    return serverError(res);
   }
 };
 
@@ -559,11 +542,9 @@ const updateCredentialsStatus = async (req, res) => {
       success: true,
       message: "Credentials status updated successfully",
     });
-  } catch {
-    res.status(500).json({
-      success: false,
-      message: "Something went wrong.",
-    });
+  } catch (error) {
+    console.error("Update credentials status error:", error);
+    return serverError(res);
   }
 };
 

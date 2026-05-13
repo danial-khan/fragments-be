@@ -11,19 +11,19 @@ class RecommendationJobService {
   }
 
   init() {
-    cron.schedule('*/1 * * * *', () => {
+    cron.schedule("0 */6 * * *", () => {
       this.runRecommendationJob();
     }, {
       scheduled: true,
       timezone: "UTC"
     });
 
-    console.log('✅ Recommendation job scheduler initialized');
+    console.log('Recommendation job scheduler initialized');
   }
 
   async runRecommendationJob() {
     if (this.isRunning) {
-      console.log('⚠️ Recommendation job already running, skipping...');
+      console.log('Recommendation job already running, skipping');
       return;
     }
 
@@ -31,26 +31,34 @@ class RecommendationJobService {
     const startTime = Date.now();
 
     try {
-      console.log('🚀 Starting recommendation job...');
+      console.log('Starting recommendation job');
 
-      // Get all active users who have recent activity
       const activeUsers = await this.getActiveUsers();
-      console.log(`📊 Found ${activeUsers.length} active users`);
+      console.log(`Active users for recommendations: ${activeUsers.length}`);
 
       let processedCount = 0;
       let errorCount = 0;
 
-      // Process users in batches to avoid memory issues
       const batchSize = 10;
       for (let i = 0; i < activeUsers.length; i += batchSize) {
         const batch = activeUsers.slice(i, i + batchSize);
-        
-        await Promise.allSettled(
-          batch.map(userId => this.processUserRecommendations(userId))
+
+        const settled = await Promise.allSettled(
+          batch.map((userId) => this.processUserRecommendations(userId))
         );
 
+        settled.forEach((result) => {
+          if (result.status === "rejected") {
+            errorCount += 1;
+            return;
+          }
+          if (result.value && result.value.success === false) {
+            errorCount += 1;
+          }
+        });
+
         processedCount += batch.length;
-        console.log(`📈 Processed ${processedCount}/${activeUsers.length} users`);
+        console.log(`Recommendation batch progress: ${processedCount}/${activeUsers.length} users`);
 
         // Add small delay between batches to prevent overwhelming the system
         if (i + batchSize < activeUsers.length) {
@@ -59,11 +67,12 @@ class RecommendationJobService {
       }
 
       this.lastRun = new Date();
-      console.log(`✅ Recommendation job completed in ${Date.now() - startTime}ms`);
-      console.log(`📊 Processed: ${processedCount}, Errors: ${errorCount}`);
+      console.log(
+        `Recommendation job completed in ${Date.now() - startTime}ms (errors: ${errorCount})`
+      );
 
     } catch (error) {
-      console.error('❌ Recommendation job failed:', error);
+      console.error('Recommendation job failed:', error);
     } finally {
       this.isRunning = false;
     }
@@ -74,11 +83,12 @@ class RecommendationJobService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const activeUserIds = await EventModel.distinct('payload.userId', {
-      timestamp: { $gte: thirtyDaysAgo }
+    const activeUserIds = await EventModel.distinct("payload.userId", {
+      timestamp: { $gte: thirtyDaysAgo },
+      "payload.userId": { $exists: true, $ne: null },
     });
 
-    return activeUserIds;
+    return activeUserIds.filter(Boolean);
   }
 
   async processUserRecommendations(userId) {
@@ -88,18 +98,18 @@ class RecommendationJobService {
       if (recommendations.length > 0) {
         await fragmentRecommendationEngine.saveRecommendations(userId, recommendations);
         
-        console.log(`✅ Generated ${recommendations.length} recommendations for user ${userId}`);
+        console.log(`Generated ${recommendations.length} recommendations for user ${userId}`);
       }
 
       return { success: true, count: recommendations.length };
     } catch (error) {
-      console.error(`❌ Error processing recommendations for user ${userId}:`, error);
+      console.error(`Error processing recommendations for user ${userId}:`, error);
       return { success: false, error: error.message };
     }
   }
 
   async triggerRecommendationJob() {
-    console.log('🔄 Manually triggering recommendation job...');
+    console.log('Manually triggering recommendation job');
     await this.runRecommendationJob();
   }
 
@@ -141,10 +151,10 @@ class RecommendationJobService {
         isClicked: false
       });
 
-      console.log(`🧹 Cleaned up ${result.deletedCount} old recommendations`);
+      console.log(`Cleaned up ${result.deletedCount} old recommendation records`);
       return result.deletedCount;
     } catch (error) {
-      console.error('❌ Error cleaning up old recommendations:', error);
+      console.error('Error cleaning up old recommendations:', error);
       return 0;
     }
   }
@@ -165,10 +175,8 @@ class RecommendationJobService {
         { userId, fragmentId },
         { $set: update }
       );
-
-      console.log(`📝 Updated interaction for user ${userId}, fragment ${fragmentId}: ${interactionType}`);
     } catch (error) {
-      console.error('❌ Error updating user interaction:', error);
+      console.error('Error updating user interaction:', error);
     }
   }
 
@@ -203,7 +211,7 @@ class RecommendationJobService {
         }));
       }
     } catch (error) {
-      console.error('❌ Error getting user recommendations:', error);
+      console.error('Error getting user recommendations:', error);
       return [];
     }
   }

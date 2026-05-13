@@ -34,11 +34,11 @@ const createDefaultCategories = async () => {
     });
 
     if (categoriesCount > 0) {
-      console.log(`✅ Categories already exist (${categoriesCount} found)`);
+      console.log(`Categories already exist (${categoriesCount} found)`);
       return;
     }
 
-    console.log("🔍 No categories found. Creating default categories...");
+    console.log("No categories found; creating default categories");
 
     let createdCount = 0;
 
@@ -68,10 +68,10 @@ const createDefaultCategories = async () => {
             existingCategory.active = true;
             existingCategory.color = color;
             await existingCategory.save();
-            console.log(`   ♻️  Reactivated: ${categoryName} (${color})`);
+            console.log(`   Reactivated category: ${categoryName} (${color})`);
             createdCount++;
           } else {
-            console.log(`   ⏭️  Skipped: ${categoryName} (already exists)`);
+            console.log(`   Skipped category (already exists): ${categoryName}`);
           }
         } else {
           // Create new category
@@ -84,18 +84,18 @@ const createDefaultCategories = async () => {
             featured: false,
             description: `Explore ${categoryName} content`
           });
-          console.log(`   ✅ Created: ${categoryName} (${color})`);
+          console.log(`   Created category: ${categoryName} (${color})`);
           createdCount++;
         }
       } catch (err) {
-        console.error(`   ❌ Error creating ${categoryName}:`, err.message);
+        console.error(`   Error creating category ${categoryName}:`, err.message);
       }
     }
 
-    console.log(`\n✅ Default categories setup complete! (${createdCount} categories)`);
-    
+    console.log(`Default categories setup complete (${createdCount} categories)`);
+
   } catch (error) {
-    console.error("❌ Error creating default categories:", error.message);
+    console.error("Error creating default categories:", error.message);
   }
 };
 

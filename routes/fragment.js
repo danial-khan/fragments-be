@@ -2,15 +2,15 @@ const express = require("express");
 const fragmentRouter = express.Router();
 
 const fragmentController = require("../controllers/fragmentController");
-const { authMiddleware } = require("../middlewares/auth");
+const { authMiddleware, optionalAuthMiddleware } = require("../middlewares/auth");
 const { isEducatorMiddleware } = require("../middlewares/subscription");
 
 // Fragment CRUD routes (create/update/delete require educator plan)
 fragmentRouter.post("/", authMiddleware, isEducatorMiddleware, fragmentController.createFragment);
-fragmentRouter.get("/", authMiddleware, fragmentController.getFragments);
+fragmentRouter.get("/", optionalAuthMiddleware, fragmentController.getFragments);
 fragmentRouter.get(
   "/profile/:username",
-  authMiddleware,
+  optionalAuthMiddleware,
   fragmentController.getPublicProfile
 );
 fragmentRouter.get(
@@ -23,7 +23,7 @@ fragmentRouter.get(
   authMiddleware,
   fragmentController.getUserFragmentsStats
 );
-fragmentRouter.get("/:id", authMiddleware, fragmentController.getFragment);
+fragmentRouter.get("/:id", optionalAuthMiddleware, fragmentController.getFragment);
 fragmentRouter.put("/:id", authMiddleware, isEducatorMiddleware, fragmentController.updateFragment);
 fragmentRouter.patch(
   "/:id/status/:status",

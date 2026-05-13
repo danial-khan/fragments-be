@@ -248,9 +248,6 @@ class FragmentRecommendationEngine {
         });
       }
 
-      console.log({
-        scoredFragments
-      })
       // Sort by dateTime (createdAt) and suggestionConfidence (score)
       scoredFragments.sort((a, b) => {
         // First sort by score (suggestionConfidence) in descending order

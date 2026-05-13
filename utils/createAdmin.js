@@ -14,11 +14,11 @@ const createDefaultAdminUser = async () => {
     });
 
     if (adminExists) {
-      console.log("✅ Admin user already exists");
+      console.log("Admin user already exists");
       return;
     }
 
-    console.log("🔍 No admin user found. Creating default admin...");
+    console.log("No admin user found; creating default admin");
 
     // Default admin credentials
     const adminEmail = "admin@fragments.com";
@@ -36,7 +36,7 @@ const createDefaultAdminUser = async () => {
       existingUser.active = true;
       existingUser.isDeleted = false;
       await existingUser.save();
-      console.log("✅ Existing user promoted to admin:", adminEmail);
+      console.log("Existing user promoted to admin:", adminEmail);
       return;
     }
 
@@ -65,13 +65,12 @@ const createDefaultAdminUser = async () => {
 
     await adminUser.save();
     
-    console.log("✅ Default admin user created successfully!");
-    console.log("   📧 Email:", adminEmail);
-    console.log("   🔑 Password:", adminPassword);
-    console.log("   ⚠️  Please change the password after first login!");
-    
+    console.log("Default admin user created");
+    console.log("   Email:", adminEmail);
+    console.log("   Initial password (change after first login):", adminPassword);
+
   } catch (error) {
-    console.error("❌ Error creating default admin user:", error.message);
+    console.error("Error creating default admin user:", error.message);
   }
 };
 

@@ -1,42 +1,72 @@
 const recommendationJobService = require('../services/recommendationJob');
 const UserFragmentModel = require('../database/models/userFragment');
 const FragmentModel = require('../database/models/fragment');
+const { errorResponse, serverError } = require('../utils/response');
 
 const recommendationController = {
-  // Get personalized recommendations for the authenticated user
+  // Personalized feed when logged in; trending published fragments when guest
   getUserRecommendations: async (req, res) => {
     try {
-      const userId = req.user._id;
-      const { 
-        limit = 20, 
+      const {
+        limit = 20,
         forceRefresh,
-        page = 1 
+        page = 1,
       } = req.query;
 
-      const parsedLimit = Math.min(parseInt(limit), 50); // Max 50 recommendations
-      const parsedPage = Math.max(1, parseInt(page));
+      const parsedLimit = Math.min(parseInt(limit, 10) || 20, 50);
+      const parsedPage = Math.max(1, parseInt(page, 10) || 1);
 
+      if (!req.user) {
+        const query = { isDeleted: false, status: 'published' };
+        const total = await FragmentModel.countDocuments(query);
+        const fragments = await FragmentModel.find(query)
+          .sort({ viewCount: -1, createdAt: -1 })
+          .skip((parsedPage - 1) * parsedLimit)
+          .limit(parsedLimit)
+          .populate('author', 'name username avatar')
+          .populate('category', 'name color')
+          .lean();
+
+        const recommendations = fragments.map((f) => ({
+          ...f,
+          recommendationScore: f.viewCount || 0,
+          recommendationReason: 'trending',
+          aiExplanation: null,
+        }));
+
+        return res.status(200).json({
+          feedMode: 'anonymous',
+          feedMessage: 'Sign in for a personalized feed based on your interests.',
+          recommendations,
+          total,
+          page: parsedPage,
+          pages: Math.max(1, Math.ceil(total / parsedLimit)),
+          hasMore: parsedPage * parsedLimit < total,
+        });
+      }
+
+      const userId = req.user._id;
       const recommendations = await recommendationJobService.getUserRecommendations(
-        userId, 
-        parsedLimit, 
+        userId,
+        parsedLimit,
         forceRefresh === 'true'
       );
 
-      // Apply pagination
       const startIndex = (parsedPage - 1) * parsedLimit;
       const endIndex = startIndex + parsedLimit;
       const paginatedRecommendations = recommendations.slice(startIndex, endIndex);
 
       res.status(200).json({
+        feedMode: 'personalized',
         recommendations: paginatedRecommendations,
         total: recommendations.length,
         page: parsedPage,
-        pages: Math.ceil(recommendations.length / parsedLimit),
-        hasMore: endIndex < recommendations.length
+        pages: Math.ceil(recommendations.length / parsedLimit) || 1,
+        hasMore: endIndex < recommendations.length,
       });
     } catch (error) {
       console.error('Get user recommendations error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
@@ -51,7 +81,7 @@ const recommendationController = {
       res.status(200).json({ message: 'Recommendation marked as viewed' });
     } catch (error) {
       console.error('Mark recommendation viewed error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
@@ -66,7 +96,7 @@ const recommendationController = {
       res.status(200).json({ message: 'Recommendation marked as clicked' });
     } catch (error) {
       console.error('Mark recommendation clicked error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
@@ -115,7 +145,7 @@ const recommendationController = {
       });
     } catch (error) {
       console.error('Get recommendation stats error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
@@ -139,7 +169,7 @@ const recommendationController = {
       res.status(200).json({ reasons });
     } catch (error) {
       console.error('Get recommendation reasons error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
@@ -148,10 +178,9 @@ const recommendationController = {
     try {
       // Check if user is admin
       if (!req.user.isAdmin) {
-        return res.status(403).json({ error: 'Admin access required' });
+        return errorResponse(res, 403, "Admin access required.", "FORBIDDEN");
       }
 
-      // Run job in background
       recommendationJobService.triggerRecommendationJob();
 
       res.status(200).json({ 
@@ -160,16 +189,14 @@ const recommendationController = {
       });
     } catch (error) {
       console.error('Trigger recommendation job error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
-  // Admin endpoint to get job status
   getJobStatus: async (req, res) => {
     try {
-      // Check if user is admin
       if (!req.user.isAdmin) {
-        return res.status(403).json({ error: 'Admin access required' });
+        return errorResponse(res, 403, "Admin access required.", "FORBIDDEN");
       }
 
       const status = recommendationJobService.getJobStatus();
@@ -177,31 +204,25 @@ const recommendationController = {
       res.status(200).json(status);
     } catch (error) {
       console.error('Get job status error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
-  // Admin endpoint to clean up old recommendations
   cleanupOldRecommendations: async (req, res) => {
     try {
-      // Check if user is admin
       if (!req.user.isAdmin) {
-        return res.status(403).json({ error: 'Admin access required' });
+        return errorResponse(res, 403, "Admin access required.", "FORBIDDEN");
       }
 
       const deletedCount = await recommendationJobService.cleanupOldRecommendations();
 
-      res.status(200).json({ 
-        message: 'Cleanup completed successfully',
-        deletedCount
-      });
+      res.status(200).json({ message: 'Cleanup completed successfully', deletedCount });
     } catch (error) {
       console.error('Cleanup old recommendations error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   },
 
-  // Get similar fragments based on a specific fragment
   getSimilarFragments: async (req, res) => {
     try {
       const { fragmentId } = req.params;
@@ -212,7 +233,7 @@ const recommendationController = {
         .populate('author', 'name username');
 
       if (!fragment) {
-        return res.status(404).json({ error: 'Fragment not found' });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       // Find fragments with similar characteristics
@@ -241,7 +262,7 @@ const recommendationController = {
       });
     } catch (error) {
       console.error('Get similar fragments error:', error);
-      res.status(500).json({ error: error.message });
+      return serverError(res);
     }
   }
 };

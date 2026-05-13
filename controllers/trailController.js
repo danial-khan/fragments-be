@@ -1,5 +1,6 @@
 const Trail = require('../database/models/trail');
 const Fragment = require('../database/models/fragment');
+const { errorResponse, serverError } = require('../utils/response');
 
 const trailController = {
   // Suggest a new trail
@@ -11,18 +12,18 @@ const trailController = {
       // Get the fragment to check its author and category
       const fragment = await Fragment.findById(fragmentId);
       if (!fragment) {
-        return res.status(404).json({ error: 'Fragment not found' });
+        return errorResponse(res, 404, 'Fragment not found.', 'NOT_FOUND');
       }
 
       // Get the trail fragment to check its category
       const trailFragment = await Fragment.findById(trailId);
       if (!trailFragment) {
-        return res.status(404).json({ error: 'Trail fragment not found' });
+        return errorResponse(res, 404, 'Trail fragment not found.', 'NOT_FOUND');
       }
 
       // Check if fragments are in the same category
       if (fragment.category.toString() !== trailFragment.category.toString()) {
-        return res.status(400).json({ error: 'Trail must be from the same category' });
+        return errorResponse(res, 400, 'Trail must be from the same category.', 'VALIDATION_ERROR');
       }
 
       // Check if trail already exists
@@ -32,10 +33,8 @@ const trailController = {
         status: { $in: ['pending', 'approved'] }
       });
 
-      console.log(existingTrail)
-
       if (existingTrail) {
-        return res.status(400).json({ error: 'Trail already suggested or approved' });
+        return errorResponse(res, 409, 'Trail already suggested or approved.', 'CONFLICT');
       }
 
       const newTrail = new Trail({
@@ -54,7 +53,7 @@ const trailController = {
       });
     } catch (err) {
       console.error('Suggest trail error:', err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -62,16 +61,15 @@ const trailController = {
   getFragmentTrails: async (req, res) => {
     try {
       const { fragmentId } = req.params;
-      const userId = req.user._id;
+      const userId = req.user?._id;
 
       const fragment = await Fragment.findById(fragmentId);
       if (!fragment) {
-        return res.status(404).json({ error: 'Fragment not found' });
+        return errorResponse(res, 404, 'Fragment not found.', 'NOT_FOUND');
       }
 
-      // If user is not the author, only show approved trails
       const query = { fragmentId };
-      if (fragment.author.toString() !== userId.toString()) {
+      if (!userId || fragment.author.toString() !== userId.toString()) {
         query.status = 'approved';
       }
 
@@ -83,7 +81,7 @@ const trailController = {
       res.status(200).json(trails);
     } catch (err) {
       console.error('Get fragment trails error:', err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -95,17 +93,17 @@ const trailController = {
       const userId = req.user._id;
 
       if (!['approved', 'rejected'].includes(status)) {
-        return res.status(400).json({ error: 'Invalid status' });
+        return errorResponse(res, 400, 'Invalid status value.', 'VALIDATION_ERROR');
       }
 
       const trail = await Trail.findById(trailId);
       if (!trail) {
-        return res.status(404).json({ error: 'Trail not found' });
+        return errorResponse(res, 404, 'Trail not found.', 'NOT_FOUND');
       }
 
       // Only fragment author can approve/reject trails
       if (trail.authorId.toString() !== userId.toString()) {
-        return res.status(403).json({ error: 'Not authorized' });
+        return errorResponse(res, 403, 'You are not authorized to perform this action.', 'FORBIDDEN');
       }
 
       trail.status = status;
@@ -117,13 +115,16 @@ const trailController = {
       });
     } catch (err) {
       console.error('Update trail status error:', err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
   // Get trails for an author
   getAuthorTrails: async (req, res) => {
     try {
+      if (!req.user?._id) {
+        return res.status(200).json([]);
+      }
       const userId = req.user._id;
 
       const trails = await Trail.find({ authorId: userId })
@@ -135,7 +136,7 @@ const trailController = {
       res.status(200).json(trails);
     } catch (err) {
       console.error('Get author trails error:', err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   }
 };

@@ -5,13 +5,13 @@ const UserCredentialsModel = require("../database/models/userCredentials");
 const CategoryModel = require("../database/models/category");
 const notificationController = require("./notificationController");
 const { analyzeContentWithAI } = require("../utils/aiReview");
+const { errorResponse, serverError } = require("../utils/response");
 
 async function pruneAndPopulate(replies = []) {
   const valid = replies.filter(
     (r) => r.isDeleted === false
   );
   if (valid.length === 0) return [];
-  8;
 
   await FragmentModel.populate(valid, {
     path: "author",
@@ -57,7 +57,7 @@ const fragmentController = {
 
       const categoryExists = await CategoryModel.findById(category);
       if (!categoryExists) {
-        return res.status(400).json({ error: "Invalid category" });
+        return errorResponse(res, 400, "Invalid category.", "VALIDATION_ERROR");
       }
 
       const {
@@ -104,7 +104,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Create fragment error:", err);
-      return res.status(500).json({ error: err.message });
+      return serverError(res);
     }
   },
 
@@ -119,7 +119,7 @@ const fragmentController = {
         .populate("category", "name color");
 
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       fragment = fragment.toObject();
@@ -139,7 +139,7 @@ const fragmentController = {
       res.status(200).json(fragment);
     } catch (err) {
       console.error("getFragment error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -189,7 +189,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Get fragments error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -201,11 +201,11 @@ const fragmentController = {
 
       const user = await UserModel.findOne({ username, isDeleted: false })
         .select(
-          "_id, name username avatar cover type location socialLinks website followers following createdAt showStats"
+          "_id name username avatar cover type location socialLinks website followers following createdAt showStats"
         )
         .lean();
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return errorResponse(res, 404, "User not found.", "NOT_FOUND");
       }
 
       const credentials = await UserCredentialsModel.findOne({
@@ -263,8 +263,7 @@ const fragmentController = {
       });
     } catch (error) {
       console.error("Get profile error:", error);
-      return res.status(500).json({ error: "Server error" });
-      return res.status(500).json({ error: "Server error" });
+      return serverError(res);
     }
   },
 
@@ -310,7 +309,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Get fragments error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -354,7 +353,7 @@ const fragmentController = {
       res.status(200).json(stats);
     } catch (err) {
       console.error("Get user fragments stats error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -371,19 +370,17 @@ const fragmentController = {
       });
 
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       if (fragment.author.toString() !== userId.toString()) {
-        return res.status(403).json({
-          error: "Not authorized to update this fragment",
-        });
+        return errorResponse(res, 403, "You are not authorized to update this fragment.", "FORBIDDEN");
       }
 
       if (category) {
         const categoryExists = await CategoryModel.findById(category);
         if (!categoryExists) {
-          return res.status(400).json({ error: "Invalid category" });
+          return errorResponse(res, 400, "Invalid category.", "VALIDATION_ERROR");
         }
       }
 
@@ -446,7 +443,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Update fragment error:", err);
-      return res.status(500).json({ error: err.message });
+      return serverError(res);
     }
   },
 
@@ -462,7 +459,7 @@ const fragmentController = {
       });
 
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
       // Check if the user is the author
       if (fragment.author.toString() !== userId.toString()) {
@@ -478,7 +475,7 @@ const fragmentController = {
       res.status(200).json({ message: "Fragment deleted successfully" });
     } catch (err) {
       console.error("Delete fragment error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -489,7 +486,7 @@ const fragmentController = {
       const author = req.user._id;
 
       if (!content) {
-        return res.status(400).json({ error: "Content is required" });
+        return errorResponse(res, 400, "Reply content is required.", "VALIDATION_ERROR");
       }
 
       const moderationResult = await analyzeContentWithAI(content, "reply");
@@ -505,7 +502,7 @@ const fragmentController = {
 
       const fragment = await FragmentModel.findById(id);
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       if (!fragment.subscribers.includes(author)) {
@@ -538,7 +535,7 @@ const fragmentController = {
 
         const found = updateReplies(fragment.replies);
         if (!found) {
-          return res.status(404).json({ error: "Reply to edit not found" });
+          return errorResponse(res, 404, "Reply not found.", "NOT_FOUND");
         }
 
         fragment.markModified("replies");
@@ -589,7 +586,7 @@ const fragmentController = {
         };
 
         if (!addReplyToParent(fragment.replies, parentReplyId)) {
-          return res.status(404).json({ error: "Parent reply not found" });
+          return errorResponse(res, 404, "Parent reply not found.", "NOT_FOUND");
         }
       } else {
         fragment.replies.push(newReply);
@@ -614,7 +611,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Add reply error:", err);
-      return res.status(500).json({ error: err.message });
+      return serverError(res);
     }
   },
 
@@ -625,7 +622,7 @@ const fragmentController = {
 
       const fragment = await FragmentModel.findById(fragmentId);
       if (!fragment || fragment.isDeleted || fragment.status !== "published") {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       let unauthorized = false;
@@ -667,7 +664,7 @@ const fragmentController = {
           .json({ error: "Unauthorized to delete this reply" });
       }
       if (!found) {
-        return res.status(404).json({ error: "Reply not found" });
+        return errorResponse(res, 404, "Reply not found.", "NOT_FOUND");
       }
 
       fragment.markModified("replies");
@@ -676,7 +673,7 @@ const fragmentController = {
       res.status(200).json({ message: "Reply and its sub‑replies deleted" });
     } catch (err) {
       console.error("Delete reply error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 
@@ -689,12 +686,12 @@ const fragmentController = {
       const author = userId;
 
       if (!["upvote", "downvote", "remove"].includes(voteType)) {
-        return res.status(400).json({ error: "Invalid vote type" });
+        return errorResponse(res, 400, "Invalid vote type.", "VALIDATION_ERROR");
       }
 
       const fragment = await FragmentModel.findById(id);
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
       if (!fragment.subscribers.includes(author)) {
         fragment.subscribers.push(author);
@@ -739,7 +736,7 @@ const fragmentController = {
         };
 
         if (!findAndUpdateReply(fragment.replies)) {
-          return res.status(404).json({ error: "Reply not found" });
+          return errorResponse(res, 404, "Reply not found.", "NOT_FOUND");
         }
       } else {
         updateVotes(fragment);
@@ -783,7 +780,7 @@ const fragmentController = {
       res.status(200).json({ message: "Vote updated successfully" });
     } catch (err) {
       console.error("Vote error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
   changeFragmentStatus: async (req, res) => {
@@ -792,7 +789,7 @@ const fragmentController = {
       const userId = req.user._id;
 
       if (!["draft", "published"].includes(status)) {
-        return res.status(400).json({ error: "Invalid status" });
+        return errorResponse(res, 400, "Invalid status value.", "VALIDATION_ERROR");
       }
 
       const fragment = await FragmentModel.find({
@@ -801,11 +798,11 @@ const fragmentController = {
         status: "published",
       });
       if (!fragment) {
-        return res.status(404).json({ error: "Fragment not found" });
+        return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
       }
 
       if (fragment.author.toString() !== userId.toString()) {
-        return res.status(403).json({ error: "Not authorized" });
+        return errorResponse(res, 403, "You are not authorized to perform this action.", "FORBIDDEN");
       }
 
       if (fragment.status === status) {
@@ -834,7 +831,7 @@ const fragmentController = {
       });
     } catch (err) {
       console.error("Change fragment status error:", err);
-      res.status(500).json({ error: err.message });
+      serverError(res);
     }
   },
 };
