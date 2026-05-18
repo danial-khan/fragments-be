@@ -792,10 +792,9 @@ const fragmentController = {
         return errorResponse(res, 400, "Invalid status value.", "VALIDATION_ERROR");
       }
 
-      const fragment = await FragmentModel.find({
-        _id: req.params.id,
+      const fragment = await FragmentModel.findOne({
+        _id: id,
         isDeleted: false,
-        status: "published",
       });
       if (!fragment) {
         return errorResponse(res, 404, "Fragment not found.", "NOT_FOUND");
