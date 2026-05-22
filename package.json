@@ -4,7 +4,11 @@
   "main": "index.js",
   "scripts": {
     "start": "NODE_ENV=production node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "stripe:setup:sandbox": "node scripts/setup-stripe-subscriptions.js --env sandbox",
+    "stripe:setup:live": "node scripts/setup-stripe-subscriptions.js --env live --confirm",
+    "stripe:list:sandbox": "node scripts/setup-stripe-subscriptions.js --list --env sandbox",
+    "stripe:list:live": "node scripts/setup-stripe-subscriptions.js --list --env live"
   },
   "author": "",
   "license": "ISC",

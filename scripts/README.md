@@ -26,21 +26,44 @@ This script creates the new subscription products and prices in your Stripe acco
 
 ## Environment Setup
 
-Make sure your `.env` file in the `fragments-be` directory contains:
+**Sandbox (test mode)** — use `sk_test_...` in `.env` or `.env.sandbox`:
 
 ```env
-STRIPE_SECRET=sk_test_xxxxx  # Use sk_live_xxxxx for production
+STRIPE_SECRET=sk_test_xxxxx
 ```
+
+**Live (production)** — copy `.env.live.example` to `.env.live` and use `sk_live_...`:
+
+```bash
+cp .env.live.example .env.live
+# Edit .env.live with your live secret key from Stripe Dashboard (Live mode)
+```
+
+Your production API server must also use the same `sk_live_...` key and a live-mode webhook endpoint.
 
 ## Usage
 
 ### 1. Create New Subscription Plans
 
-Run this command to create all 4 new subscription plans in Stripe:
+**Sandbox** (already set up if you ran this before with test keys):
 
 ```bash
 cd fragments-be
-node scripts/setup-stripe-subscriptions.js
+npm run stripe:setup:sandbox
+# or: node scripts/setup-stripe-subscriptions.js --env sandbox
+```
+
+**Live** (requires confirmation flag):
+
+```bash
+npm run stripe:setup:live
+# or: node scripts/setup-stripe-subscriptions.js --env live --confirm
+```
+
+One-off with inline key (no `.env.live` file):
+
+```bash
+STRIPE_SECRET=sk_live_xxx node scripts/setup-stripe-subscriptions.js --env live --confirm
 ```
 
 This will create:
@@ -69,7 +92,8 @@ Output will show:
 To see all current prices in your Stripe account:
 
 ```bash
-node scripts/setup-stripe-subscriptions.js --list
+npm run stripe:list:sandbox
+npm run stripe:list:live
 ```
 
 ### 3. Archive Old Plans (Optional)
