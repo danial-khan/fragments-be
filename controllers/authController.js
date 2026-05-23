@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const UserModel = require("../database/models/user");
+const CategoryModel = require("../database/models/category");
 const crypto = require("crypto");
 const ejs = require("ejs");
 const path = require("path");
@@ -6,6 +8,7 @@ const mailer = require("../utils/mailer");
 const { config } = require("../config");
 const jwt = require("jsonwebtoken");
 const UserCredentialsModel = require("../database/models/userCredentials");
+const UserFragmentModel = require("../database/models/userFragment");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary");
 const { errorResponse, serverError } = require("../utils/response");
 
@@ -16,12 +19,63 @@ const slugify = (str) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+const MAX_AREAS_OF_INTEREST = 5;
+
+async function normalizePreferencePayload({ intention, areasOfInterest }) {
+  if (!intention || !["learn", "publish"].includes(intention)) {
+    return {
+      error: "Intention is required (learn or publish).",
+    };
+  }
+
+  if (!Array.isArray(areasOfInterest) || areasOfInterest.length === 0) {
+    return {
+      error: "Select at least one area of interest.",
+    };
+  }
+
+  if (areasOfInterest.length > MAX_AREAS_OF_INTEREST) {
+    return {
+      error: `Select at most ${MAX_AREAS_OF_INTEREST} areas of interest.`,
+    };
+  }
+
+  const categoryIds = [...new Set(areasOfInterest.map(String))];
+  const invalidId = categoryIds.find((id) => !mongoose.Types.ObjectId.isValid(id));
+  if (invalidId) {
+    return { error: "One or more selected categories are invalid." };
+  }
+
+  const validCategories = await CategoryModel.find({
+    _id: { $in: categoryIds },
+    isDeleted: false,
+    active: true,
+  }).select("_id");
+
+  if (validCategories.length !== categoryIds.length) {
+    return { error: "One or more selected categories are invalid." };
+  }
+
+  return {
+    intention,
+    areasOfInterest: validCategories.map((c) => c._id),
+  };
+}
+
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, intention, areasOfInterest } = req.body;
 
     if (!name || !email || !password) {
       return errorResponse(res, 400, "All fields are required.", "VALIDATION_ERROR");
+    }
+
+    const preferences = await normalizePreferencePayload({
+      intention,
+      areasOfInterest,
+    });
+    if (preferences.error) {
+      return errorResponse(res, 400, preferences.error, "VALIDATION_ERROR");
     }
 
     const existingUser = await UserModel.findOne({ email });
@@ -48,11 +102,13 @@ const register = async (req, res) => {
 
     await UserModel.create({
       name,
-      email,  
+      email,
       username,
       password: hashedPassword,
       verificationCode,
       type: "student",
+      intention: preferences.intention,
+      areasOfInterest: preferences.areasOfInterest,
     });
 
     // Render email template
@@ -522,6 +578,36 @@ const onboarding = async (req, res) => {
   }
 };
 
+const updatePreferences = async (req, res) => {
+  try {
+    const preferences = await normalizePreferencePayload(req.body);
+    if (preferences.error) {
+      return errorResponse(res, 400, preferences.error, "VALIDATION_ERROR");
+    }
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          intention: preferences.intention,
+          areasOfInterest: preferences.areasOfInterest,
+        },
+      },
+      { new: true }
+    ).populate("areasOfInterest", "name color slug");
+
+    await UserFragmentModel.deleteMany({ userId: req.user._id });
+
+    return res.status(200).json({
+      message: "Preferences saved.",
+      user: user?.toJSON(),
+    });
+  } catch (error) {
+    console.error("Update preferences error:", error);
+    return serverError(res);
+  }
+};
+
 const updateCredentialsStatus = async (req, res) => {
   try {
     const userCredentialsId = req.userCredentials._id;
@@ -560,5 +646,6 @@ module.exports.authController = {
   resetPassword,
   contactUs,
   onboarding,
+  updatePreferences,
   updateCredentialsStatus,
 };

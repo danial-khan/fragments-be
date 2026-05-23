@@ -2,6 +2,7 @@ const { config } = require("../config");
 const OpenAI = require("openai");
 const FragmentModel = require("../database/models/fragment");
 const EventModel = require("../database/models/event");
+const UserModel = require("../database/models/user");
 const UserFragmentModel = require("../database/models/userFragment");
 
 const openai = new OpenAI({
@@ -178,9 +179,9 @@ class FragmentRecommendationEngine {
   async generateRecommendations(userId, limit = null) {
     try {
       const patterns = await this.getUserActivityPatterns(userId);
-      
+
       if (patterns.totalEvents === 0) {
-        return await this.getPopularFragments(limit);
+        return await this.getInterestBasedRecommendations(userId, limit);
       }
 
       const allFragments = await FragmentModel.find({
@@ -276,6 +277,65 @@ class FragmentRecommendationEngine {
       console.error("Error generating recommendations:", error);
       return await this.getPopularFragments(limit);
     }
+  }
+
+  // Cold-start recommendations from signup preferences
+  async getInterestBasedRecommendations(userId, limit = 20) {
+    const user = await UserModel.findById(userId)
+      .select("areasOfInterest intention")
+      .lean();
+
+    const interestIds = (user?.areasOfInterest || []).map((id) => id.toString());
+    if (interestIds.length === 0) {
+      return this.getPopularFragments(limit);
+    }
+
+    const query = FragmentModel.find({
+      isDeleted: false,
+      status: "published",
+      category: { $in: user.areasOfInterest },
+    })
+      .sort({ viewCount: -1, createdAt: -1 })
+      .populate("category", "name color")
+      .populate("author", "name username");
+
+    if (limit) {
+      query.limit(limit);
+    }
+
+    let fragments = await query.lean();
+
+    if (limit && fragments.length < limit) {
+      const existingIds = new Set(fragments.map((f) => f._id.toString()));
+      const filler = await FragmentModel.find({
+        isDeleted: false,
+        status: "published",
+        _id: { $nin: [...existingIds] },
+      })
+        .sort({ viewCount: -1, createdAt: -1 })
+        .limit(limit - fragments.length)
+        .populate("category", "name color")
+        .populate("author", "name username")
+        .lean();
+
+      fragments = [...fragments, ...filler];
+    }
+
+    const intentionLabel =
+      user?.intention === "publish" ? "publishing goals" : "learning goals";
+
+    return fragments.map((fragment) => ({
+      fragment,
+      score: 0.75,
+      reason: "interest_match",
+      metadata: {
+        categoryScore: 0.75,
+        titleSimilarityScore: 0,
+        locationScore: 0,
+        deviceScore: 0,
+        aiExplanation: `Matched to your ${intentionLabel} and areas of interest`,
+      },
+    }));
   }
 
   // Get popular fragments as fallback

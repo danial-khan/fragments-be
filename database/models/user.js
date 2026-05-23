@@ -106,6 +106,18 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    /** learn | publish — used for personalized recommendations */
+    intention: {
+      type: String,
+      enum: ["learn", "publish"],
+      default: null,
+    },
+
+    areasOfInterest: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }],
+      default: [],
+    },
+
     isDeleted: {
       type: Boolean,
       default: false,

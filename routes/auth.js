@@ -19,6 +19,7 @@ authRouter.put(
   uploadProfileMedia,
   authController.editProfile
 );
+authRouter.put("/preferences", authMiddleware, authController.updatePreferences);
 authRouter.post("/onboarding", authMiddleware, authController.onboarding);
 authRouter.post("/credentials/:status", authMiddleware, authController.updateCredentialsStatus);
 
